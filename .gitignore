@@ -1,0 +1,20 @@
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Streamlit secrets (RAHASIA: Jangan pernah commit file ini ke GitHub)
+.streamlit/secrets.toml
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
