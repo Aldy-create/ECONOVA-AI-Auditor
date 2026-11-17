@@ -4,9 +4,15 @@ Mengelola seluruh st.session_state, sinkronisasi widget, komitmen/rollback koin 
 validasi kombinasi teknologi T1–T5, serta konsumsi kartu skill S1–S5.
 """
 
+import importlib
 from typing import Any, Dict
 
 import streamlit as st
+
+import cards_data as _cards_data_mod
+
+if not hasattr(_cards_data_mod, "get_resolvable_problems_for_tech"):
+    importlib.reload(_cards_data_mod)
 
 from cards_data import (
     EVENT_BY_ID,

@@ -49,6 +49,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+import importlib
+import cards_data as _cards_data_mod
+
+# Reload cards_data otomatis jika Streamlit Cloud masih menahan modul versi lama di sys.modules
+if not hasattr(_cards_data_mod, "get_resolvable_problems_for_tech"):
+    importlib.reload(_cards_data_mod)
+
 from state_manager import init_session_state
 from styles import inject_global_styles
 from ui_components import (
