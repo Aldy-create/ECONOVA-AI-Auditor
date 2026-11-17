@@ -1,11 +1,24 @@
 """
-styles.py — Bright Glass 3D Full-Color Solarpunk Design System & Faction CSS
-Menyediakan palet faksi permanen, CSS global widget kaca, dan styling dinamis giliran aktif.
+styles.py — EcoNova Official Poster Tactile Board Game HUD Design System
+Menyediakan palet faksi permanen, CSS global kartu fisik taktil, navigasi tab stateful,
+diploma sertifikat 2075, dan terminal AI Game Master.
 """
 
+import base64
+from pathlib import Path
 from typing import Dict
 
 import streamlit as st
+
+
+@st.cache_data
+def get_econova_bg_uri() -> str:
+    """Memuat latar ilustrasi web EcoNova (WebP) sebagai Data URI base64 agar selalu tampil."""
+    bg_path = Path(__file__).resolve().parent / "assets" / "econova_bg.webp"
+    if not bg_path.is_file():
+        return ""
+    encoded = base64.b64encode(bg_path.read_bytes()).decode("ascii")
+    return f"data:image/webp;base64,{encoded}"
 
 FACTION_THEMES: Dict[int, Dict[str, str]] = {
     1: {
@@ -70,10 +83,6 @@ GLOBAL_STYLES_CSS = """
     0%, 100% { opacity: 0.85; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.05); }
 }
-@keyframes cloudDrift {
-    0% { background-position: 0 0, 0 0; }
-    100% { background-position: 1600px 0, -1400px 0; }
-}
 
 html, body, .stApp {
     background-color: var(--bg-sky-mid) !important;
@@ -81,6 +90,20 @@ html, body, .stApp {
     background-attachment: fixed !important;
     color: var(--text-primary) !important;
     font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stMain"],
+section.main {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+[data-testid="stHeader"] {
+    background: rgba(221, 240, 246, 0.45) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
 }
 
 .stApp::before {
@@ -91,7 +114,7 @@ html, body, .stApp {
     width: 420px;
     height: 420px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 236, 160, 0.95) 0%, rgba(255, 221, 120, 0.45) 35%, rgba(255, 221, 120, 0) 70%);
+    background: radial-gradient(circle, rgba(255, 236, 160, 0.55) 0%, rgba(255, 221, 120, 0.25) 35%, rgba(255, 221, 120, 0) 70%);
     pointer-events: none;
     z-index: 0;
     animation: sunGlow 6s ease-in-out infinite;
@@ -101,10 +124,14 @@ h1, h2, h3, h4, .stat-outfit {
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     color: var(--text-primary) !important;
     font-weight: 700 !important;
+    font-variant-numeric: tabular-nums;
 }
 p, span, label, li, td, th {
     color: var(--text-primary);
     font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.tabular-num {
+    font-variant-numeric: tabular-nums;
 }
 
 .block-container {
@@ -113,13 +140,29 @@ p, span, label, li, td, th {
     padding-bottom: 6rem !important;
 }
 
+/* Stateful Top Navigation Bar Shell */
+div[class*="st-key-nav_bar_shell"] {
+    background: #FFFDF7 !important;
+    border: 2px solid #B7D5C4 !important;
+    border-radius: 18px !important;
+    padding: 8px 10px !important;
+    box-shadow: 0 5px 0 rgba(22, 78, 51, 0.14), 0 10px 20px rgba(0, 0, 0, 0.05) !important;
+    margin-bottom: 14px !important;
+}
+div[class*="st-key-nav_btn_"] button {
+    border-radius: 13px !important;
+    font-family: 'Fredoka', 'Outfit', sans-serif !important;
+    font-size: 0.95rem !important;
+    padding: 10px 16px !important;
+}
+
 /* Tactile Eco-Solarpunk Card Panels */
 div[data-testid="stVerticalBlockBorderWrapper"] > div,
 div[class*="st-key-panel_"],
 .eco-card {
-    background: var(--card-cream) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
+    background: rgba(255, 253, 247, 0.94) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
     border: 2px solid #CFE2D4 !important;
     border-radius: 20px !important;
     box-shadow: var(--shadow-3d) !important;
@@ -134,7 +177,7 @@ div[class*="st-key-panel_"]:hover,
     box-shadow: 0 7px 0 rgba(22, 78, 51, 0.16), 0 14px 28px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Champion Card */
+/* Champion Card & Official Diploma Frame */
 .eco-card-champion {
     background: linear-gradient(135deg, #FFFDF7 0%, #FEF3C7 60%, #FFFBEB 100%) !important;
     border: 2.5px solid #EAB308 !important;
@@ -158,8 +201,78 @@ div[class*="st-key-panel_"]:hover,
     letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
 }
+.cert-diploma {
+    background: linear-gradient(135deg, #FFFDF7 0%, #F7F4E8 55%, #EFF9F3 100%);
+    border: 3px solid #164E33;
+    outline: 2px dashed #D97706;
+    outline-offset: -8px;
+    border-radius: 22px;
+    padding: 28px 32px;
+    box-shadow: 0 8px 0 rgba(22, 78, 51, 0.18), 0 16px 36px rgba(15, 42, 29, 0.09);
+    margin-bottom: 18px;
+}
 
-/* Poster Ribbon Headers ("WHAT IS ECONOVA?" / "MEET THE AI AUDITOR") */
+/* 4-Pillar Stat Grid (Poster "Meet the AI Auditor" Style) */
+.pillar-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+@media (max-width: 768px) {
+    .pillar-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.pillar-tile {
+    border-radius: 16px;
+    padding: 12px 14px;
+    text-align: center;
+    border: 2px solid;
+    box-shadow: 0 4px 0 rgba(22, 78, 51, 0.10);
+}
+.pillar-tile-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.pillar-tile-val {
+    font-family: 'Fredoka', 'Outfit', sans-serif;
+    font-size: 1.85rem;
+    font-weight: 900;
+    line-height: 1.1;
+    margin: 3px 0;
+    font-variant-numeric: tabular-nums;
+}
+.pillar-tile-tier {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+
+/* Diagnostic Narrative Cards (Tab 2) */
+.diag-card {
+    background: #FFFDF7;
+    border: 1.5px solid #CFE2D4;
+    border-radius: 18px;
+    padding: 18px 20px;
+    box-shadow: 0 5px 0 rgba(22, 78, 51, 0.10);
+    margin-bottom: 14px;
+    height: 100%;
+}
+.diag-card-hdr {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: 'Fredoka', 'Outfit', sans-serif;
+    font-size: 1.06rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+/* Poster Ribbon Headers */
 .eco-ribbon-wrap {
     display: flex;
     align-items: center;
@@ -204,48 +317,35 @@ div[class*="st-key-panel_"]:hover,
     box-shadow: 0 4px 0 rgba(22, 78, 51, 0.22), 0 6px 14px rgba(0, 0, 0, 0.10);
 }
 
-/* Tab Bar Styling */
+/* Inner Sub-Tabs Styling (Certificate Player Tabs) */
 div[data-testid="stTabs"] div[role="tablist"] {
-    gap: 12px !important;
-    border-bottom: 2px solid rgba(5, 150, 105, 0.25) !important;
-    padding: 8px 12px 14px 12px !important;
-    background: rgba(255, 255, 255, 0.82) !important;
-    backdrop-filter: blur(16px) !important;
-    border-radius: 18px 18px 0 0 !important;
-    border: 1px solid rgba(255, 255, 255, 0.95) !important;
-    box-shadow: 0 6px 24px rgba(2, 132, 199, 0.08) !important;
-    margin-bottom: 18px !important;
+    gap: 10px !important;
+    padding: 8px 10px 10px 10px !important;
+    background: #F4F1E1 !important;
+    border-radius: 16px !important;
+    border: 1.5px solid #B7D5C4 !important;
+    margin-bottom: 14px !important;
 }
 div[data-testid="stTabs"] [role="tab"],
 div[data-testid="stTabs"] button[data-baseweb="tab"] {
-    background: rgba(255, 255, 255, 0.88) !important;
-    backdrop-filter: blur(10px) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
-    border-bottom: 3.5px solid #CFE3D6 !important;
-    border-radius: 14px !important;
-    padding: 10px 22px !important;
-    color: #334155 !important;
-    font-family: 'Outfit', sans-serif !important;
+    background: #FFFDF7 !important;
+    border: 1.5px solid #B7D5C4 !important;
+    border-bottom: 3px solid #94B8A4 !important;
+    border-radius: 12px !important;
+    padding: 8px 16px !important;
+    color: #164E33 !important;
+    font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-weight: 700 !important;
-    font-size: 0.95rem !important;
-    box-shadow: 0 4px 12px rgba(15, 42, 29, 0.05) !important;
-    transition: all 0.2s ease !important;
-}
-div[data-testid="stTabs"] [role="tab"]:hover,
-div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
-    border-color: #0284C7 !important;
-    border-bottom: 3.5px solid #0284C7 !important;
-    transform: translateY(-2px) !important;
+    font-size: 0.9rem !important;
 }
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"],
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-    background: linear-gradient(180deg, #FFFFFF 0%, #F0FDF4 100%) !important;
-    border-color: #059669 !important;
-    border-bottom: 4px solid #059669 !important;
-    box-shadow: 0 8px 24px rgba(5, 150, 105, 0.22) !important;
+    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%) !important;
+    border-color: #144A31 !important;
+    border-bottom: 3.5px solid #0D3321 !important;
 }
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
-    color: #047857 !important;
+    color: #FFFFFF !important;
     font-weight: 800 !important;
 }
 
@@ -284,20 +384,51 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
     margin: 0 !important;
     line-height: 1.15;
 }
-.eco-pill-badge {
+.eco-logo-plaque {
     display: inline-flex;
     align-items: center;
-    padding: 4px 12px;
-    border-radius: 999px;
+    justify-content: center;
     background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%);
-    border: 1px solid #0E3B26;
-    box-shadow: 0 3px 0 #0D3321;
-    color: #FFFFFF;
+    padding: 8px 16px;
+    border-radius: 14px;
+    border: 1.5px solid #0E3B26;
+    box-shadow: 0 4px 0 #0D3321;
+}
+.eco-logo-img {
+    height: 40px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+.eco-hero-subtitle {
     font-family: 'Fredoka', 'Outfit', sans-serif;
-    font-size: 0.72rem;
+    font-size: 1.16rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    color: #164E33;
+    border-left: 2.5px solid #B7D5C4;
+    padding-left: 14px;
+    line-height: 1.2;
+}
+.eco-cert-kop-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.eco-cert-logo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #164E33;
+    padding: 5px 12px;
+    border-radius: 10px;
+}
+.eco-cert-logo-img {
+    height: 26px;
+    width: auto;
+    display: block;
+    object-fit: contain;
 }
 .eco-legend-row {
     display: flex;
@@ -324,7 +455,7 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
 .eco-pill-e *, .pill-e * { color: #B45309 !important; }
 .eco-pill-qol *, .pill-qol * { color: #E11D48 !important; }
 
-/* Tactile Board-Game Buttons (Primary & Round Navigation) */
+/* Tactile Board-Game Buttons */
 button[kind="primary"],
 [data-testid="stBaseButton-primary"],
 div[class*="st-key-btn_next_round"] button {
@@ -357,95 +488,294 @@ div[class*="st-key-btn_prev_round"] button:active {
     border-bottom-width: 1.5px !important;
     box-shadow: 0 2px 6px rgba(22, 78, 51, 0.12) !important;
 }
-div[class*="st-key-btn_prev_round"] button {
+button[kind="secondary"],
+[data-testid="stBaseButton-secondary"] {
     background: #FFFDF7 !important;
     color: #164E33 !important;
     border: 1.5px solid #B7D5C4 !important;
-    border-bottom: 3.5px solid #0E3B26 !important;
-    border-radius: 14px !important;
-    font-family: 'Fredoka', 'Outfit', sans-serif !important;
-    font-weight: 800 !important;
-    transition: transform 0.12s ease, box-shadow 0.12s ease !important;
+    border-bottom: 3px solid #94B8A4 !important;
+    border-radius: 13px !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
 }
-div[class*="st-key-btn_prev_round"] button:hover {
-    background: #F4FBF6 !important;
-    border-color: #164E33 !important;
+button[kind="secondary"]:hover:not(:disabled),
+[data-testid="stBaseButton-secondary"]:hover:not(:disabled) {
+    background: #F0FDF4 !important;
+    border-color: #16A34A !important;
 }
 
-/* Custom Cream Input, Select, Multiselect, Labels & Expander Styling */
+/* Custom Clean Input, Select, Multiselect, Labels & Expander Drawer Styling */
 div[data-testid="stWidgetLabel"] p {
     font-family: 'Outfit', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 700 !important;
     color: #164E33 !important;
 }
+div[data-testid="stTextInputRootElement"],
+div[data-testid="stNumberInputContainer"],
 div[data-baseweb="input"],
-div[data-baseweb="base-input"] {
-    background: #FFFDF7 !important;
-    border: 1.5px solid #B7D5C4 !important;
-    border-radius: 12px !important;
-    box-shadow: inset 0 1px 3px rgba(22, 78, 51, 0.05) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+div[data-baseweb="select"] > div {
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #96BCA7 !important;
+    border-radius: 10px !important;
+    box-shadow: inset 0 1px 2px rgba(22, 78, 51, 0.04), 0 1px 2px rgba(22, 78, 51, 0.05) !important;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease !important;
 }
+div[data-testid="stTextInputRootElement"] div[data-baseweb="input"],
+div[data-testid="stNumberInputContainer"] div[data-baseweb="input"],
 div[data-baseweb="input"] div[data-baseweb="base-input"] {
     border: none !important;
     box-shadow: none !important;
-    background: transparent !important;
+    background-color: transparent !important;
 }
+div[data-testid="stTextInputRootElement"]:focus-within,
+div[data-testid="stNumberInputContainer"]:focus-within,
 div[data-baseweb="input"]:focus-within,
-div[data-baseweb="base-input"]:focus-within {
+div[data-baseweb="select"] > div:focus-within {
     border-color: #16A34A !important;
     box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18) !important;
 }
+div[data-testid="stTextInputRootElement"] input,
+div[data-testid="stNumberInputContainer"] input,
+div[data-baseweb="input"] input,
 div[data-baseweb="base-input"] input {
-    background: transparent !important;
+    background-color: transparent !important;
     color: #164E33 !important;
+    -webkit-text-fill-color: #164E33 !important;
+    font-weight: 700 !important;
+    font-size: 0.88rem !important;
+}
+div[data-baseweb="select"] input,
+div[data-baseweb="select"] span {
+    color: #164E33 !important;
+}
+div[data-baseweb="select"] [class*="placeholder"],
+div[data-baseweb="select"] input::placeholder {
+    color: #6B8B7A !important;
+    -webkit-text-fill-color: #6B8B7A !important;
+    font-weight: 600 !important;
+    font-size: 0.83rem !important;
+}
+div[data-baseweb="select"] svg {
+    color: #164E33 !important;
+    fill: #164E33 !important;
+}
+div[data-baseweb="popover"],
+ul[data-baseweb="menu"] {
+    background-color: #FFFDF7 !important;
+    border: 1.5px solid #8BB39E !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 24px rgba(22, 78, 51, 0.14) !important;
+}
+ul[data-baseweb="menu"] li[role="option"] {
+    color: #164E33 !important;
+    font-size: 0.84rem !important;
     font-weight: 600 !important;
 }
-div[data-baseweb="select"] > div {
-    background: #FFFDF7 !important;
-    border: 1.5px solid #B7D5C4 !important;
-    border-radius: 12px !important;
-    box-shadow: inset 0 1px 2px rgba(22, 78, 51, 0.04) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
-}
-div[data-baseweb="select"] > div:hover,
-div[data-baseweb="select"] > div:focus-within {
-    border-color: #0284C7 !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14) !important;
-}
-span[data-baseweb="tag"] {
-    background: #DCFCE7 !important;
+ul[data-baseweb="menu"] li[role="option"]:hover,
+ul[data-baseweb="menu"] li[aria-selected="true"] {
+    background-color: #DCFCE7 !important;
     color: #14532D !important;
-    border: 1px solid #86EFAC !important;
+}
+
+/* Sub-Kartu Terstruktur di Dalam Drawer Kelola Kartu & Kas */
+.eco-drawer-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.eco-drawer-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.77rem;
+    font-weight: 800;
+    color: #164E33;
+    letter-spacing: 0.01em;
+}
+.eco-drawer-sub {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #5C7A69;
+}
+.eco-drawer-chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.eco-field-cap {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #2E523F;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+div[class*="st-key-wrap_identity_sec"] {
+    background: #FFFFFF !important;
+    border: 1.5px solid #CFE2D4 !important;
+    border-top: 3px solid #1E6B47 !important;
+    border-radius: 13px !important;
+    padding: 10px 11px 11px 11px !important;
+    box-shadow: 0 2px 5px rgba(22, 78, 51, 0.05) !important;
+}
+div[class*="st-key-wrap_proj_sec"] {
+    background: #F3FBF6 !important;
+    border: 1.5px solid #A7DFBE !important;
+    border-left: 4px solid #16A34A !important;
+    border-radius: 13px !important;
+    padding: 9px 11px 10px 11px !important;
+}
+div[class*="st-key-wrap_tech_sec"] {
+    background: #F2F9FF !important;
+    border: 1.5px solid #93C5FD !important;
+    border-left: 4px solid #0284C7 !important;
+    border-radius: 13px !important;
+    padding: 9px 11px 10px 11px !important;
+}
+div[class*="st-key-wrap_skill_sec"] {
+    background: #FFFBEB !important;
+    border: 1.5px solid #FCD34D !important;
+    border-left: 4px solid #D97706 !important;
+    border-radius: 13px !important;
+    padding: 9px 11px 10px 11px !important;
+}
+div[class*="st-key-wrap_prob_sec"] {
+    background: #FFF5F6 !important;
+    border: 1.5px solid #FDA4AF !important;
+    border-left: 4px solid #E11D48 !important;
+    border-radius: 13px !important;
+    padding: 9px 11px 10px 11px !important;
+}
+div[class*="st-key-wrap_coin_sec"] {
+    background: linear-gradient(135deg, #FFFDF5 0%, #FEF3C7 100%) !important;
+    border: 1.5px solid #F59E0B !important;
+    border-left: 4px solid #B45309 !important;
+    border-radius: 13px !important;
+    padding: 9px 11px 10px 11px !important;
+    box-shadow: 0 2px 6px rgba(180, 83, 9, 0.08) !important;
+}
+div[class*="st-key-wrap_coin_sec"] div[data-testid="stNumberInputContainer"] {
+    border-color: #D97706 !important;
+    background-color: #FFFFFF !important;
+}
+div[class*="st-key-wrap_coin_sec"] div[data-testid="stNumberInputContainer"] input {
+    text-align: center !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #92400E !important;
+    -webkit-text-fill-color: #92400E !important;
+}
+
+/* Multiselect Tags per Kategori (Pastel Pill Kontras Tinggi) */
+span[data-baseweb="tag"],
+[data-baseweb="tag"] {
+    background-color: #DCFCE7 !important;
+    border: 1.5px solid #22C55E !important;
+    color: #14532D !important;
     border-radius: 8px !important;
     font-weight: 700 !important;
-    box-shadow: 0 1px 3px rgba(20, 83, 45, 0.08) !important;
+}
+div[class*="st-key-wrap_proj_sec"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_proj_sec"] [data-baseweb="tag"] {
+    background-color: #DCFCE7 !important;
+    border: 1.5px solid #22C55E !important;
+    color: #14532D !important;
+}
+div[class*="st-key-wrap_tech_sec"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_tech_sec"] [data-baseweb="tag"] {
+    background-color: #E0F2FE !important;
+    border: 1.5px solid #0284C7 !important;
+    color: #075985 !important;
+}
+div[class*="st-key-wrap_skill_sec"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_skill_sec"] [data-baseweb="tag"] {
+    background-color: #FEF3C7 !important;
+    border: 1.5px solid #F59E0B !important;
+    color: #92400E !important;
+}
+div[class*="st-key-wrap_prob_sec"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_prob_sec"] [data-baseweb="tag"] {
+    background-color: #FFE4E6 !important;
+    border: 1.5px solid #F43F5E !important;
+    color: #9F1239 !important;
 }
 span[data-baseweb="tag"] span,
-span[data-baseweb="tag"] svg {
-    color: #14532D !important;
-    fill: #14532D !important;
+span[data-baseweb="tag"] svg,
+[data-baseweb="tag"] span,
+[data-baseweb="tag"] svg {
+    color: inherit !important;
+    fill: currentColor !important;
 }
+
+/* Stepper Buttons (- dan +) Simetris pada st.number_input */
+div[data-testid="stNumberInput"] button {
+    background: #164E33 !important;
+    background-color: #164E33 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #0E3B26 !important;
+    border-radius: 8px !important;
+    margin: 2px !important;
+    min-height: 28px !important;
+    padding: 0 9px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+div[data-testid="stNumberInput"] button svg,
+div[data-testid="stNumberInput"] button path {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+}
+div[data-testid="stNumberInput"] button:hover:not(:disabled) {
+    background: #1E6B47 !important;
+    background-color: #1E6B47 !important;
+}
+
+/* Expander Kelola Kartu & Kas: Soft Cream Command Drawer */
 div[data-testid="stExpander"] {
-    border-radius: 14px !important;
-    background: rgba(255, 253, 247, 0.92) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    border-radius: 16px !important;
+    background-color: #F7F4EA !important;
     border: 1.5px solid #B7D5C4 !important;
-    box-shadow: 0 4px 10px rgba(22, 78, 51, 0.05) !important;
+    box-shadow: 0 4px 0 rgba(22, 78, 51, 0.08) !important;
     overflow: hidden !important;
     margin-top: 8px !important;
 }
+div[data-testid="stExpander"] > details {
+    background-color: #F7F4EA !important;
+}
+div[data-testid="stExpanderDetails"] {
+    background-color: #F7F4EA !important;
+    padding: 10px 11px 12px 11px !important;
+}
 div[data-testid="stExpander"] details summary {
-    font-family: 'Outfit', sans-serif !important;
+    font-family: 'Fredoka', 'Outfit', sans-serif !important;
+    font-size: 0.9rem !important;
     font-weight: 700 !important;
     color: #164E33 !important;
-    background: rgba(255, 253, 247, 0.95) !important;
-    transition: background 0.2s ease !important;
+    background: linear-gradient(180deg, #F3EFE0 0%, #EAE4CE 100%) !important;
+    border-bottom: 1px solid #D5E2D8 !important;
+    padding: 9px 14px !important;
 }
 div[data-testid="stExpander"] details summary:hover {
-    background: #DCFCE7 !important;
+    background: linear-gradient(180deg, #DCFCE7 0%, #CBEFD8 100%) !important;
+}
+div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] {
+    gap: 0.55rem !important;
 }
 
 /* Progress Bars */
@@ -454,9 +784,11 @@ div[data-testid="stExpander"] details summary:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 6px;
     font-size: 0.84rem;
     margin-bottom: 3px;
     font-weight: 600;
+    white-space: nowrap !important;
 }
 .eco-prog-track {
     width: 100%;
@@ -473,21 +805,51 @@ div[data-testid="stExpander"] details summary:hover {
     transition: width 0.4s ease;
 }
 
-/* Chat Styling & Tab 3 Avatars / Status Dot */
+/* Tab 3: EcoNova Rulebook & AI Advisor Terminal (Forest Green + Warm Cream) */
 @keyframes aiStatusPulse {
-    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
-    70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.65); }
+    70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
 }
 .ai-status-dot {
     display: inline-block;
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: #10B981;
+    background: #16A34A;
     margin-right: 7px;
     vertical-align: middle;
     animation: aiStatusPulse 1.8s infinite;
+}
+.ai-persona-box {
+    background: linear-gradient(135deg, #F4F1E1 0%, #ECFDF5 100%) !important;
+    border: 2px solid #164E33 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 0 rgba(22, 78, 51, 0.16) !important;
+    padding: 15px 17px !important;
+    margin-bottom: 14px !important;
+}
+.ai-avatar-3d {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%);
+    border: 2px solid #FBBF24;
+    box-shadow: 0 4px 0 #0D3321;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.rule-tile {
+    background: #F9F6E8;
+    border: 1.5px solid #B7D5C4;
+    border-left: 4px solid #164E33;
+    border-radius: 12px;
+    padding: 8px 11px;
+    margin-bottom: 7px;
+    font-size: 0.78rem;
+    line-height: 1.38;
 }
 .chat-avatar-badge {
     width: 36px;
@@ -498,49 +860,40 @@ div[data-testid="stExpander"] details summary:hover {
     align-items: center;
     justify-content: center;
     border: 2px solid #FFFFFF;
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Fredoka', 'Outfit', sans-serif;
     letter-spacing: 0.03em;
 }
 .chat-avatar-ai {
-    background: linear-gradient(135deg, #A7F3D0 0%, #34D399 55%, #0EA5E9 100%);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%);
+    color: #FFFFFF !important;
+    box-shadow: 0 3px 0 #0D3321;
 }
 .chat-avatar-user {
-    background: linear-gradient(135deg, #FDE68A 0%, #FBBF24 55%, #F59E0B 100%);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
-}
-.ai-persona-box {
-    background: rgba(255, 255, 255, 0.88) !important;
-    backdrop-filter: blur(16px) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
-    border-radius: 18px !important;
-    box-shadow: 0 6px 20px rgba(15, 42, 29, 0.05) !important;
-    padding: 16px 18px !important;
-    margin-bottom: 14px !important;
-}
-.ai-avatar-3d {
-    width: 50px;
-    height: 50px;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #34D399 0%, #10B981 55%, #0EA5E9 100%);
-    border: 2px solid #FFFFFF;
-    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: linear-gradient(180deg, #F59E0B 0%, #B45309 100%);
+    color: #FFFFFF !important;
+    box-shadow: 0 3px 0 #78350F;
 }
 .chat-row-user { display: flex; justify-content: flex-end; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
 .chat-row-ai { display: flex; justify-content: flex-start; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
 .chat-bubble-ai {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid #D6E4DA;
-    border-top: 3px solid #10B981;
+    background: #FFFDF7;
+    border: 1.5px solid #B7D5C4;
+    border-top: 3.5px solid #164E33;
     border-radius: 6px 18px 18px 18px;
     padding: 14px 18px;
-    box-shadow: 0 6px 16px rgba(15, 42, 29, 0.07);
+    box-shadow: 0 4px 0 rgba(22, 78, 51, 0.10);
     max-width: 88%;
     font-size: 0.93rem;
-    line-height: 1.6;
+    line-height: 1.62;
+}
+.chat-bubble-ai code {
+    background: #DCFCE7;
+    color: #14532D;
+    border: 1px solid #86EFAC;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 0.84rem;
+    font-weight: 700;
 }
 .chat-sender-tag {
     display: flex;
@@ -548,13 +901,13 @@ div[data-testid="stExpander"] details summary:hover {
     font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0.05em;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
 }
 .chat-bubble-user {
-    background: linear-gradient(180deg, #16A34A 0%, #15803D 100%);
+    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%);
     border-radius: 18px 6px 18px 18px;
     padding: 12px 18px;
-    box-shadow: 0 6px 16px rgba(21, 128, 61, 0.2);
+    box-shadow: 0 4px 0 #0D3321;
     max-width: 82%;
     color: #FFFFFF;
     font-size: 0.94rem;
@@ -574,8 +927,26 @@ def render_html(html_str: str) -> None:
 
 
 def inject_global_styles() -> None:
-    """Menyuntikkan CSS global EcoNova Official Poster (Tactile Eco-Solarpunk Board Game HUD)."""
+    """Menyuntikkan CSS global EcoNova Official Poster serta latar ilustrasi web Solarpunk."""
     render_html(GLOBAL_STYLES_CSS)
+    bg_uri = get_econova_bg_uri()
+    if bg_uri:
+        render_html(
+            f"""
+            <style>
+            html, body, .stApp {{
+                background-color: #DDF0F6 !important;
+                background-image:
+                    linear-gradient(180deg, rgba(240, 248, 252, 0.16) 0%, rgba(249, 246, 232, 0.28) 56%, rgba(235, 246, 238, 0.22) 100%),
+                    url("{bg_uri}") !important;
+                background-size: cover !important;
+                background-position: center bottom !important;
+                background-repeat: no-repeat !important;
+                background-attachment: fixed !important;
+            }}
+            </style>
+            """
+        )
 
 
 def inject_faction_turn_styles(active_player_id: int) -> None:
@@ -602,9 +973,9 @@ def inject_faction_turn_styles(active_player_id: int) -> None:
             else "0 6px 0 rgba(22, 78, 51, 0.14), 0 12px 24px rgba(0, 0, 0, 0.06)"
         )
         bg_rule = (
-            f"linear-gradient(180deg, #FFFDF7 0%, #FFFDF7 72%, {f_th['tint']} 100%)"
+            f"linear-gradient(180deg, rgba(255, 253, 247, 0.94) 0%, rgba(255, 253, 247, 0.94) 72%, {f_th['tint']} 100%)"
             if is_turn
-            else "#FFFDF7"
+            else "rgba(255, 253, 247, 0.94)"
         )
         turn_btn_css = (
             f"""

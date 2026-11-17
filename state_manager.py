@@ -1,7 +1,7 @@
 """
 state_manager.py — State Persistence, Callbacks & Game Mechanics Engine
 Mengelola seluruh st.session_state, sinkronisasi widget, komitmen/rollback koin event,
-validasi kombinasi teknologi T1–T5, serta konsumsi kartu skill S1–S5.
+validasi kombinasi teknologi T1–T5, konsumsi kartu skill S1–S5, dan navigasi tab aktif.
 """
 
 import importlib
@@ -21,6 +21,12 @@ from cards_data import (
     evaluate_single_event_live,
     get_resolvable_problems_for_tech,
 )
+
+TAB_OPTIONS = [
+    "Tab 1: Live Tracker",
+    "Tab 2: Final Audit",
+    "Tab 3: AI Game Master",
+]
 
 WELCOME_CHAT_MESSAGE = (
     "Halo Wali Kota! Saya **Profesor Terra — AI Game Master EcoNova**.\n\n"
@@ -98,6 +104,9 @@ TECH_ACTION_META: Dict[str, Dict[str, Any]] = {
 
 def init_session_state() -> None:
     """Inisialisasi session state murni baseline dengan struktur st.session_state.players."""
+    if "active_tab" not in st.session_state or st.session_state.active_tab not in TAB_OPTIONS:
+        st.session_state.active_tab = "Tab 1: Live Tracker"
+
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = [{"role": "assistant", "content": WELCOME_CHAT_MESSAGE}]
 
@@ -110,7 +119,6 @@ def init_session_state() -> None:
     if "round_event_history" not in st.session_state:
         st.session_state.round_event_history = []
 
-    # Dropdown Event Card dimulai kosong (None / placeholder)
     if "selected_event_id" not in st.session_state:
         st.session_state.selected_event_id = None
 
@@ -189,8 +197,20 @@ def init_session_state() -> None:
 
 
 # ------------------------------------------------------------------------------
-# CALLBACKS WIDGET SYNC & GAME ACTION (ZERO-CRASH STATE ARCHITECTURE)
+# CALLBACKS NAVIGASI TAB & WIDGET SYNC
 # ------------------------------------------------------------------------------
+def callback_switch_tab(tab_name: str) -> None:
+    """Berpindah antar tab secara langsung via session state."""
+    if tab_name in TAB_OPTIONS:
+        st.session_state.active_tab = tab_name
+
+
+def callback_lock_and_open_audit() -> None:
+    """Mengunci simulasi dari Tab 1 dan langsung otomatis berpindah ke Tab 2: Final Audit."""
+    st.session_state.audit_triggered = True
+    st.session_state.active_tab = "Tab 2: Final Audit"
+
+
 def callback_set_active_player(p_id: int) -> None:
     """Mengubah pemain yang sedang mendapat giliran aktif di meja."""
     if p_id in (1, 2, 3, 4):
@@ -256,20 +276,10 @@ def callback_reset_manual_points(p_id: int) -> None:
 
 
 def callback_event_picker_changed() -> None:
-    """Callback saat pemain memilih event fisik dari dropdown."""
     st.session_state.selected_event_id = st.session_state.get("widget_event_picker")
 
 
 def callback_next_round() -> None:
-    """
-    Callback navigasi ronde berikutnya:
-    1. Komit delta stat Event Card ronde berjalan ke accumulated_event_delta (kecuali jika kebal S5).
-    2. Komit perubahan koin Event Card langsung ke kas koin permanen pemain (pl['coins'] & widget_coins)
-       agar tidak hilang saat selector dikosongkan dan tidak terjadi penghitungan ganda.
-    3. Simpan snapshot ronde (Event + aktivasi Tech ronde ini) ke round_event_history untuk rollback Prev.
-    4. Masukkan Event Card ke used_events (Discard Pile) dan kosongkan selector ke None.
-    5. Reset cooldown tombol Tech (active_techs_this_round) & imunitas S5, TANPA mereset accumulated_tech_stats.
-    """
     curr_ev = st.session_state.selected_event_id
     has_valid_ev = bool(curr_ev and curr_ev in EVENT_BY_ID)
     commit_entry: Dict[str, Any] = {
@@ -313,12 +323,10 @@ def callback_next_round() -> None:
     if st.session_state.current_round < 13:
         st.session_state.current_round += 1
 
-    # Kosongkan kembali selector Event Card
     st.session_state.selected_event_id = None
     if "widget_event_picker" in st.session_state:
         st.session_state.widget_event_picker = None
 
-    # Reset cooldown tombol tech & status imunitas S5; accumulated_tech_stats tetap dipertahankan!
     st.session_state.tech_used_this_round = {
         p_id: {t: False for t in ["T1", "T2", "T3", "T4", "T5"]} for p_id in range(1, 5)
     }
@@ -329,15 +337,9 @@ def callback_next_round() -> None:
 
 
 def callback_prev_round() -> None:
-    """
-    Callback navigasi ronde sebelumnya:
-    Membatalkan aktivasi Tech pada ronde berjalan yang ditinggalkan, memulihkan event dari
-    Discard Deck, me-rollback koin/delta stat Event, serta memulihkan status tombol Tech ronde tujuan.
-    """
     if st.session_state.current_round > 1:
         st.session_state.current_round -= 1
 
-        # Rollback aktivasi Tech yang sempat dilakukan pada ronde berjalan sebelum Prev ditekan
         for p_id in range(1, 5):
             pl = st.session_state.players[p_id]
             if "accumulated_tech_stats" not in pl:
@@ -385,7 +387,7 @@ def callback_prev_round() -> None:
 
 
 def callback_reset_game() -> None:
-    """Mereset seluruh data ke baseline awal (Skor 50, Koin 5, Tanpa Kartu)."""
+    st.session_state.active_tab = "Tab 1: Live Tracker"
     st.session_state.current_round = 1
     st.session_state.used_events = []
     st.session_state.round_event_history = []
@@ -428,12 +430,6 @@ def callback_reset_game() -> None:
 
 
 def callback_activate_tech(p_id: int, t_code: str) -> None:
-    """
-    Aksi kartu Permanent Tech (T1–T5) maksimal 1x per ronde (direset saat Next Ronde).
-    Menambahkan stat kartu Tech secara permanen ke pl['accumulated_tech_stats'] agar poin
-    lintas ronde tidak hilang, sementara kartu Tech tetap berada di area pemain dan dapat
-    menyelesaikan Problem Card jika seluruh syarat kombinasi ('+') terpenuhi.
-    """
     pl = st.session_state.players[p_id]
     if "accumulated_tech_stats" not in pl:
         pl["accumulated_tech_stats"] = {"M": 0, "E": 0, "ENV": 0, "QoL": 0}
@@ -481,7 +477,6 @@ def callback_activate_tech(p_id: int, t_code: str) -> None:
 
 
 def callback_use_s1(p_id: int, prob_to_remove: str) -> None:
-    """Logika khusus S1: Menghapus 1 Problem Card terpilih dan kartu S1 langsung dikonsumsi (hilang)."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
 
@@ -500,7 +495,6 @@ def callback_use_s1(p_id: int, prob_to_remove: str) -> None:
 
 
 def callback_use_s1_fallback(p_id: int) -> None:
-    """Fallback S1 jika pemain tidak memiliki problem card: Memberi dana darurat +2 ke semua pilar."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
     if "S1" in pl["skills"]:
@@ -513,7 +507,6 @@ def callback_use_s1_fallback(p_id: int) -> None:
 
 
 def callback_use_s2(p_id: int) -> None:
-    """Logika S2: +5 ENV, kartu S2 langsung dikonsumsi (hilang)."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
     if "S2" in pl["skills"]:
@@ -525,7 +518,6 @@ def callback_use_s2(p_id: int) -> None:
 
 
 def callback_use_s3(p_id: int) -> None:
-    """Logika S3: +5 M, kartu S3 langsung dikonsumsi (hilang)."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
     if "S3" in pl["skills"]:
@@ -537,7 +529,6 @@ def callback_use_s3(p_id: int) -> None:
 
 
 def callback_use_s4(p_id: int) -> None:
-    """Logika S4: +5 QoL, kartu S4 langsung dikonsumsi (hilang)."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
     if "S4" in pl["skills"]:
@@ -549,7 +540,6 @@ def callback_use_s4(p_id: int) -> None:
 
 
 def callback_use_s5(p_id: int) -> None:
-    """Logika khusus S5: Mengaktifkan imunitas penalti event ronde ini, kartu S5 langsung dikonsumsi (hilang)."""
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
     if "S5" in pl["skills"]:
@@ -561,10 +551,6 @@ def callback_use_s5(p_id: int) -> None:
 
 
 def callback_use_skill_solve_problem(p_id: int, s_code: str, prob_id: str) -> None:
-    """
-    Menggunakan Consumable Skill (S2–S5) untuk mengamankan Problem Card yang sesuai
-    dan langsung menghapus (consume) kartu Skill dari daftar pemain.
-    """
     pl = st.session_state.players[p_id]
     curr_r = st.session_state.current_round
 
