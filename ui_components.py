@@ -2017,22 +2017,22 @@ def render_tab_game_master() -> None:
             )
             quick_q = None
             qc1, qc2 = st.columns(2, gap="small")
-            if qc1.button("Aturan 3 AP", width="stretch", key="qp_ap"):
-                quick_q = "Gimana aturan pakai 3 Action Points (AP) dan pindah ke City Center?"
-            if qc2.button("Bonus Koin", width="stretch", key="qp_tb"):
-                quick_q = "Gimana cara ngitung Bonus Koin per 20 koin dan urutan Tie-Breaker?"
+            if qc1.button("Gamenya susah nggak?", width="stretch", key="qp_ap"):
+                quick_q = "Gamenya susah nggak sih? Seru atau lama nggak mainnya?"
+            if qc2.button("Cara menangnya?", width="stretch", key="qp_tb"):
+                quick_q = "Gimana cara menangnya dan urutan tie-breaker kalau skor seri?"
 
             qc3, qc4 = st.columns(2, gap="small")
-            if qc3.button("Tech & Skill", width="stretch", key="qp_tech"):
-                quick_q = "Apa aja efek Permanent Tech T1-T5 dan Skill S1-S5?"
-            if qc4.button("Solusi Krisis", width="stretch", key="qp_prob"):
-                quick_q = "Gimana cara beresin Problem Card pakai koin vs Tech/Skill?"
+            if qc3.button("Siapa pembuatnya?", width="stretch", key="qp_tech"):
+                quick_q = "Siapa yang buat game EcoNova dan web AI Auditor ini?"
+            if qc4.button("Bedanya Tech & Skill?", width="stretch", key="qp_prob"):
+                quick_q = "Bedanya kartu Tech (T1-T5) sama Skill (S1-S5) apa?"
 
             qc5, qc6 = st.columns(2, gap="small")
-            if qc5.button("13 Event", width="stretch", key="qp_ev"):
-                quick_q = "Apa aja efek Event Card Round 1 sampai 13 dan diskon distriknya?"
-            if qc6.button("Panduan Skor", width="stretch", key="qp_strat"):
-                quick_q = "Tips biar kota bisa tembus archetype Balanced Sustainable Metropolis (>=75)?"
+            if qc5.button("Aturan 3 AP?", width="stretch", key="qp_ev"):
+                quick_q = "Gimana aturan pakai 3 Action Points (AP) dan bonus City Center?"
+            if qc6.button("Solusi Krisis?", width="stretch", key="qp_strat"):
+                quick_q = "Gimana cara beresin Problem Card pakai koin vs kombinasi Tech/Skill?"
 
             st.markdown("---")
             render_html(

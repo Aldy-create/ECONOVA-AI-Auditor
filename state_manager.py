@@ -32,13 +32,9 @@ TAB_OPTIONS = [
 ]
 
 WELCOME_CHAT_MESSAGE = (
-    "Hai Wali Kota! Aku **EcoBot**, robot pemandu game EcoNova kamu.\n\n"
-    "Bingung soal aturan pas lagi main? Tanya aja langsung, misalnya:\n"
-    "- Pakai **3 AP** di papan & bonus +3 Koin **City Center**\n"
-    "- Efek **Tech (T1–T5)** & **Skill (S1–S5)** sekali pakai\n"
-    "- Cara beresin **Problem Card (PR01–PR20)** & kombo Tech-nya\n"
-    "- Hitungan **Bonus 20 Koin** & urutan **Tie-Breaker**\n\n"
-    "Klik tombol cepat di samping atau ketik pertanyaanmu di bawah ya!"
+    "Hai! Aku **EcoBot**, asisten board game **EcoNova** kamu.\n\n"
+    "Mau tanya aturan main, efek kartu, cara menang, atau soal game ini? "
+    "Klik tombol cepat di samping atau langsung ketik aja ya!"
 )
 
 TECH_ACTION_META: Dict[str, Dict[str, Any]] = {

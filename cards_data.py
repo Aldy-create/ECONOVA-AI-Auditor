@@ -5703,20 +5703,54 @@ def generate_city_narrative_report(audit: Dict[str, Any]) -> Dict[str, str]:
 
 def smart_rulebook_search(query: str) -> str:
     """
-    Fallback Smart Keyword Search Engine lokal jika API Key LLM belum diaktifkan.
-    Mencari jawaban relevan dari RULEBOOK_SECTIONS dan seluruh database kartu (Project, Tech, Problem, Event).
+    Fallback Smart Rulebook Engine & Retriever lokal dengan guardrail topik EcoNova,
+    cakupan pertanyaan kasual/kreator, serta jawaban ringkas bergaya EcoBot.
     """
     q = query.strip().lower()
     if not q:
-        return "Silakan ketik pertanyaan seputar aturan EcoNova, Action Points (AP), diskon Event, syarat Tech, atau nama kartu."
+        return "Ketik aja pertanyaanmu soal aturan EcoNova, efek kartu, atau cara menangnya!"
+
+    # 1. Identitas EcoBot
+    if any(kw in q for kw in ["siapa kamu", "kamu siapa", "nama kamu", "kamu bisa ngapain", "bisa apa aja", "kamu apa"]):
+        return (
+            "Aku **EcoBot**, robot pemandu game untuk board game **EcoNova: Sustainable City Builder**! "
+            "Aku bisa bantu kamu cek aturan 3 AP, efek kartu, solusi Problem Card, sampai strategi menangin audit kota 2075."
+        )
+
+    # 2. Kreator & Pembuat Game / Web
+    if any(kw in q for kw in ["siapa yang buat", "siapa pembuat", "yang bikin", "yang buat", "kreator", "developer", "pengembang", "pencipta", "dibuat oleh"]):
+        if any(w in q for w in ["game", "web", "aplikasi", "econova", "ecobot", "ini", "audit"]):
+            return (
+                "Board game **EcoNova: Sustainable City Builder** dikembangkan oleh tim proyek CTI EcoNova di "
+                "**School of STEM, Universitas Prasetiya Mulya** (dokumen rulebook disusun bersama **Frederic Agung** & tim). "
+                "Untuk aplikasi web **EcoNova AI Auditor** & **EcoBot** ini dibuat oleh **Aldy Alfaisal Pasaribu (Aldy-create)** bersama tim EcoNova."
+            )
+
+    # 3. Pertanyaan kasual seputar tingkat kesulitan / keseruan / durasi game
+    if any(kw in q for kw in ["susah", "sulit", "gampang", "mudah", "seru", "lama", "durasi", "berapa lama"]):
+        return (
+            "Aturan dasarnya gampang banget dipahami dalam beberapa menit—tiap giliran kamu cuma atur **3 AP** buat jalan, bangun Proyek, atau beli Tech. "
+            "Serunya sekaligus tantangannya ada di cara menyeimbangkan 4 pilar kota (`M`, `E`, `ENV`, `QoL`) selama **13 ronde** sambil ngadepin kartu *Problem* dan *Event*!"
+        )
+
+    stopwords = {
+        "di", "ke", "dari", "dan", "atau", "yang", "apa", "siapa", "mana", "kapan",
+        "bagaimana", "gimana", "kenapa", "mengapa", "ini", "itu", "ada", "ga", "nggak",
+        "gak", "tidak", "ya", "dong", "sih", "aja", "nih", "tuh", "untuk", "dengan",
+        "pada", "dalam", "adalah", "bisa", "buat", "bikin", "sama", "kalau", "kalo",
+        "mau", "tanya", "soal", "tentang", "seputar", "cara", "berapa", "the", "is",
+    }
+    q_words = set(re.findall(r"[a-z0-9]+", q))
+    meaningful_words = [w for w in q_words if w not in stopwords and len(w) >= 3]
 
     matched_sections = []
     for sec in RULEBOOK_SECTIONS:
         score = 0
-        if any(kw in q for kw in sec["keywords"]):
+        if any((kw in q) if " " in kw else (kw in q_words) for kw in sec["keywords"]):
             score += 3
-        for word in re.findall(r"[a-z0-9]+", q):
-            if len(word) >= 2 and (word in sec["title"].lower() or word in sec["content"].lower()):
+        sec_tokens = set(re.findall(r"[a-z0-9]+", f"{sec['title']} {sec['content']}".lower()))
+        for word in meaningful_words:
+            if word in sec_tokens:
                 score += 1
         if score > 0:
             matched_sections.append((score, sec))
@@ -5726,44 +5760,80 @@ def smart_rulebook_search(query: str) -> str:
     matched_cards = []
     for c in ALL_CARDS:
         c_score = 0
-        if q in c["id"].lower() or q == c.get("code", "").lower():
+        cid_l = c["id"].lower()
+        ccode_l = c.get("code", "").lower()
+        cname_l = c["name"].lower()
+        if cid_l in q_words or (ccode_l and ccode_l in q_words):
             c_score += 10
-        if q in c["name"].lower():
+        if cname_l in q:
             c_score += 8
-        for word in re.findall(r"[a-z0-9]+", q):
-            if len(word) >= 2:
-                if word == c["id"].lower() or word == c.get("code", "").lower():
-                    c_score += 6
-                elif word in c["name"].lower():
-                    c_score += 4
-                elif word in c.get("district", "").lower() or word in c.get("description", "").lower():
-                    c_score += 1
+        name_tokens = set(re.findall(r"[a-z0-9]+", cname_l))
+        desc_tokens = set(re.findall(r"[a-z0-9]+", f"{c.get('district', '')} {c.get('description', '')}".lower()))
+        for word in meaningful_words:
+            if word == cid_l or (ccode_l and word == ccode_l):
+                c_score += 6
+            elif word in name_tokens:
+                c_score += 4
+            elif word in desc_tokens:
+                c_score += 1
         if c_score >= 3:
             matched_cards.append((c_score, c))
 
     matched_cards.sort(key=lambda x: x[0], reverse=True)
 
-    out_lines = ["### EcoBot · Info Cepat Rulebook"]
+    # 4. Guardrail ketat topik di luar EcoNova
+    econova_phrases = (
+        "city center", "green park", "wali kota", "quality of life",
+        "board game", "public services", "problem card", "event card",
+        "project card", "tech card", "skill card", "action point", "action points",
+        "terima kasih",
+    )
+    econova_words = {
+        "econova", "ecobot", "game", "gamenya", "board", "papan", "main", "mainin", "mainnya",
+        "kartu", "card", "ronde", "round", "ap", "koin", "coin", "skor", "score", "menang",
+        "menangnya", "kalah", "juara", "tie", "breaker", "pilar", "mobility", "energy",
+        "environment", "qol", "tech", "skill", "problem", "krisis", "event", "project",
+        "proyek", "distrik", "district", "residential", "industrial", "commercial", "water",
+        "kota", "archetype", "audit", "auditor", "sertifikat", "diploma", "aturan", "rule",
+        "rulebook", "pemain", "player", "strategi", "tips", "syarat", "efek", "diskon",
+        "penalti", "bonus", "combo", "kombo", "halo", "hai", "hi", "hello", "makasih",
+        "thanks", "detail", "jelasin",
+    }
+    has_card_code = bool(re.search(r"\b(p\d{1,3}|t[1-5]|s[1-5]|pr\d{1,2}|ev\d{1,2})\b", q))
+    q_words = set(re.findall(r"[a-z0-9]+", q))
+    top_sec_score = matched_sections[0][0] if matched_sections else 0
+    is_in_scope = (
+        has_card_code
+        or bool(matched_cards)
+        or top_sec_score >= 3
+        or any(ph in q for ph in econova_phrases)
+        or bool(q_words & econova_words)
+    )
 
+    if not is_in_scope:
+        return (
+            "Waduh, kalau soal itu di luar sirkuit dataku nih! "
+            "Aku cuma paham segala hal tentang board game **EcoNova**—yuk tanya aturan main, efek kartu, atau tips menangnya aja."
+        )
+
+    out_lines = []
     if matched_sections:
-        for _, sec in matched_sections[:2]:
-            out_lines.append(f"#### {sec['title']}\n{sec['content']}")
+        for _, sec in matched_sections[:1]:
+            out_lines.append(f"**{sec['title']}**\n{sec['content']}")
 
     if matched_cards:
-        out_lines.append("#### Kartu Terkait:")
-        for _, c in matched_cards[:5]:
-            out_lines.append(
-                f"- **[{c['id']}] {c['name']}** ({c['category']} · {c['district']}) — "
-                f"Efek: `{c['effect_summary']}` | {c['description']}"
-            )
+        card_bullets = [
+            f"- **[{c['id']}] {c['name']}** ({c['category']} · {c['district']}) — `{c['effect_summary']}` ({c['description']})"
+            for _, c in matched_cards[:4]
+        ]
+        out_lines.append("**Kartu Terkait:**\n" + "\n".join(card_bullets))
 
-    if not matched_sections and not matched_cards:
+    if not out_lines:
         out_lines.append(
-            "Ringkasan cepat aturan **EcoNova**:\n"
-            "- **Awal Main:** Mulai di City Center dengan **5 Koin** dan skor **50** di semua pilar (M, E, ENV, QoL).\n"
-            "- **3 AP/Ronde (di papan):** Pindah wilayah = **1 AP**, Beli Project/Tech = **1 AP**, Pakai Skill / Beresin Krisis via Tech = **2 AP**, Bayar Krisis via Koin = **1 AP**.\n"
-            "- **City Center & Koin Akhir:** Tiba di City Center = **+3 Koin** (1x/ronde). Tiap **20 Koin** di akhir = **+5 poin ke semua 4 pilar**.\n"
-            "- **Tie-Breaker:** `Average Score` -> `Jumlah Project` -> `Jumlah Tech` -> `Sisa Koin`."
+            "Ringkasan cepat main **EcoNova**:\n"
+            "- **Mulai:** Di City Center bawa **5 Koin**, skor awal **50** di semua 4 pilar (`M`, `E`, `ENV`, `QoL`).\n"
+            "- **3 AP/Ronde:** Pindah = **1 AP**, Beli Proyek/Tech = **1 AP**, Pakai Skill / Beresin Krisis via Tech = **2 AP**, Bayar Krisis = **1 AP**.\n"
+            "- **Menang:** Kumpulkan **Average Score** tertinggi di akhir Ronde 13 (tiap **20 Koin** kasih **+5** ke semua pilar!)."
         )
 
     return "\n\n".join(out_lines)
