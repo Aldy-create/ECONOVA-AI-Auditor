@@ -4,8 +4,9 @@ Mengelola seluruh st.session_state, sinkronisasi widget, komitmen/rollback koin 
 validasi kombinasi teknologi T1–T5, konsumsi kartu skill S1–S5, dan navigasi tab aktif.
 """
 
+import copy
 import importlib
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 
@@ -18,6 +19,8 @@ from cards_data import (
     EVENT_BY_ID,
     PERMANENT_TECH_BY_CODE,
     PROBLEM_BY_ID,
+    PROJECT_BY_ID,
+    SKILL_BY_CODE,
     evaluate_single_event_live,
     get_resolvable_problems_for_tech,
 )
@@ -29,13 +32,13 @@ TAB_OPTIONS = [
 ]
 
 WELCOME_CHAT_MESSAGE = (
-    "Halo Wali Kota! Saya **Profesor Terra — AI Game Master EcoNova**.\n\n"
-    "Saya siap membantu Anda mengecek aturan resmi maupun strategi kartu secara real-time:\n"
-    "- **Mekanisme 3 Action Points (AP)** di papan meja & bonus transit City Center (+3 Koin)\n"
-    "- **Efek Permanent Tech (T1–T5)** (aktif tiap ronde, tetap dimiliki) & **Consumable Skill (S1–S5)** (sekali pakai)\n"
-    "- **Solusi Problem Card (PR01–PR20)** via Koin vs Kombinasi Tech / Skill\n"
-    "- **Rumus Bonus Koin Akhir (per 20 Koin)** & urutan Tie-Breaker resmi\n\n"
-    "Silakan klik topik pertanyaan cepat atau ketik pertanyaan Anda di bawah."
+    "Hai Wali Kota! Aku **EcoBot**, robot pemandu game EcoNova kamu.\n\n"
+    "Bingung soal aturan pas lagi main? Tanya aja langsung, misalnya:\n"
+    "- Pakai **3 AP** di papan & bonus +3 Koin **City Center**\n"
+    "- Efek **Tech (T1–T5)** & **Skill (S1–S5)** sekali pakai\n"
+    "- Cara beresin **Problem Card (PR01–PR20)** & kombo Tech-nya\n"
+    "- Hitungan **Bonus 20 Koin** & urutan **Tie-Breaker**\n\n"
+    "Klik tombol cepat di samping atau ketik pertanyaanmu di bawah ya!"
 )
 
 TECH_ACTION_META: Dict[str, Dict[str, Any]] = {
@@ -134,6 +137,15 @@ def init_session_state() -> None:
     if "active_player_id" not in st.session_state:
         st.session_state.active_player_id = 1
 
+    if "action_history" not in st.session_state:
+        st.session_state.action_history = []
+
+    if "last_deltas" not in st.session_state:
+        st.session_state.last_deltas = {p_id: {} for p_id in range(1, 5)}
+
+    if "quick_card_category" not in st.session_state:
+        st.session_state.quick_card_category = "Project"
+
     if "players" not in st.session_state:
         st.session_state.players = {}
 
@@ -229,28 +241,254 @@ def callback_sync_city(p_id: int) -> None:
         st.session_state.players[p_id]["city"] = str(val).strip() or f"Kota {p_id}"
 
 
+def _capture_undo_snapshot() -> Dict[str, Any]:
+    """Mengambil salinan utuh state permainan sebelum aksi dijalankan untuk fitur Undo."""
+    return {
+        "current_round": int(st.session_state.get("current_round", 1)),
+        "selected_event_id": st.session_state.get("selected_event_id"),
+        "used_events": list(st.session_state.get("used_events", [])),
+        "round_event_history": copy.deepcopy(st.session_state.get("round_event_history", [])),
+        "tech_used_this_round": copy.deepcopy(st.session_state.get("tech_used_this_round", {})),
+        "active_player_id": int(st.session_state.get("active_player_id", 1)),
+        "players": copy.deepcopy(st.session_state.get("players", {})),
+        "last_deltas": copy.deepcopy(st.session_state.get("last_deltas", {i: {} for i in range(1, 5)})),
+    }
+
+
+def _format_delta_summary(deltas: Dict[str, int]) -> str:
+    """Mengubah dict perubahan stat menjadi ringkasan teks singkat seperti '+2 E, -1 ENV'."""
+    parts = []
+    for k in ("M", "E", "ENV", "QoL"):
+        v = int(deltas.get(k, 0))
+        if v != 0:
+            parts.append(f"{v:+d} {k}")
+    c_val = int(deltas.get("coins", 0))
+    if c_val != 0:
+        parts.append(f"{c_val:+d} Koin")
+    return ", ".join(parts) if parts else "Status diperbarui"
+
+
+def _record_action_entry(
+    round_num: int,
+    player_id: Optional[int],
+    player_name: str,
+    card_id: str,
+    card_name: str,
+    category: str,
+    deltas: Dict[str, int],
+    snapshot: Dict[str, Any],
+) -> None:
+    """Mencatat aksi ke action_history dan menyimpan last_deltas pemain terdampak."""
+    if "action_history" not in st.session_state:
+        st.session_state.action_history = []
+    if "last_deltas" not in st.session_state:
+        st.session_state.last_deltas = {i: {} for i in range(1, 5)}
+
+    clean_deltas = {k: int(deltas.get(k, 0)) for k in ("M", "E", "ENV", "QoL", "coins") if int(deltas.get(k, 0)) != 0}
+    if player_id in (1, 2, 3, 4) and clean_deltas:
+        st.session_state.last_deltas[player_id] = {
+            "round": int(round_num),
+            "card": card_name,
+            "deltas": clean_deltas,
+        }
+
+    st.session_state.action_history.append(
+        {
+            "round": int(round_num),
+            "player_id": player_id,
+            "player_name": player_name,
+            "card_id": card_id,
+            "card_name": card_name,
+            "category": category,
+            "deltas": clean_deltas,
+            "delta_summary": _format_delta_summary(clean_deltas),
+            "snapshot": snapshot,
+        }
+    )
+    if len(st.session_state.action_history) > 40:
+        st.session_state.action_history = st.session_state.action_history[-40:]
+
+
+def callback_undo_last_action() -> None:
+    """Membatalkan aksi terakhir dari action_history dan memulihkan snapshot termasuk widget state."""
+    history = st.session_state.get("action_history", [])
+    if not history:
+        return
+    last_entry = history.pop()
+    snap = last_entry.get("snapshot", {})
+    if not snap:
+        return
+
+    st.session_state.current_round = int(snap.get("current_round", 1))
+    st.session_state.selected_event_id = snap.get("selected_event_id")
+    st.session_state.widget_event_picker = st.session_state.selected_event_id
+    st.session_state.used_events = list(snap.get("used_events", []))
+    st.session_state.round_event_history = copy.deepcopy(snap.get("round_event_history", []))
+    st.session_state.tech_used_this_round = copy.deepcopy(snap.get("tech_used_this_round", {}))
+    st.session_state.active_player_id = int(snap.get("active_player_id", 1))
+    st.session_state.players = copy.deepcopy(snap.get("players", {}))
+    st.session_state.last_deltas = copy.deepcopy(snap.get("last_deltas", {i: {} for i in range(1, 5)}))
+
+    for p_id in range(1, 5):
+        pl = st.session_state.players[p_id]
+        st.session_state[f"widget_name_{p_id}"] = pl["name"]
+        st.session_state[f"widget_city_{p_id}"] = pl["city"]
+        st.session_state[f"widget_projects_{p_id}"] = list(pl["projects"])
+        st.session_state[f"widget_techs_{p_id}"] = list(pl["techs"])
+        st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
+        st.session_state[f"widget_problems_{p_id}"] = list(pl["problems"])
+        st.session_state[f"widget_coins_{p_id}"] = int(pl["coins"])
+        for stat_key in ("M", "E", "ENV", "QoL"):
+            st.session_state[f"widget_man_{stat_key}_{p_id}"] = int(pl.get("manual_points", {}).get(stat_key, 0))
+
+
+def callback_apply_quick_card(p_id: int, category: str, card_id: Optional[str]) -> None:
+    """Menerapkan kartu dari panel aksi cepat terpadu ke pemain aktif serta mencatat log & delta."""
+    if not card_id or p_id not in st.session_state.players:
+        return
+    pl = st.session_state.players[p_id]
+    curr_r = int(st.session_state.current_round)
+    snap = _capture_undo_snapshot()
+
+    if category == "Project" and card_id in PROJECT_BY_ID:
+        if card_id in pl["projects"]:
+            return
+        card = PROJECT_BY_ID[card_id]
+        pl["projects"].append(card_id)
+        st.session_state[f"widget_projects_{p_id}"] = list(pl["projects"])
+        deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
+        pl["tech_log"].append(f"R{curr_r}: Bangun Proyek [{card_id}] {card['name']}")
+        _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Project", deltas, snap)
+
+    elif category == "Tech" and card_id in PERMANENT_TECH_BY_CODE:
+        if card_id in pl["techs"]:
+            return
+        card = PERMANENT_TECH_BY_CODE[card_id]
+        pl["techs"].append(card_id)
+        st.session_state[f"widget_techs_{p_id}"] = list(pl["techs"])
+        pl["tech_log"].append(f"R{curr_r}: Tambah Tech [{card_id}] {card['name']}")
+        _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Tech", {}, snap)
+
+    elif category == "Skill" and card_id in SKILL_BY_CODE:
+        if card_id in pl["skills"]:
+            return
+        card = SKILL_BY_CODE[card_id]
+        pl["skills"].append(card_id)
+        st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
+        pl["tech_log"].append(f"R{curr_r}: Tambah Skill [{card_id}] {card['name']}")
+        _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Skill", {}, snap)
+
+    elif category == "Problem" and card_id in PROBLEM_BY_ID:
+        if card_id in pl["problems"]:
+            return
+        card = PROBLEM_BY_ID[card_id]
+        pl["problems"].append(card_id)
+        st.session_state[f"widget_problems_{p_id}"] = list(pl["problems"])
+        deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
+        pl["tech_log"].append(f"R{curr_r}: Catat Krisis [{card_id}] {card['name']}")
+        _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Problem", deltas, snap)
+
+
 def callback_sync_projects(p_id: int) -> None:
     val = st.session_state.get(f"widget_projects_{p_id}")
     if val is not None:
-        st.session_state.players[p_id]["projects"] = list(val)
+        old_list = list(st.session_state.players[p_id]["projects"])
+        new_list = list(val)
+        if old_list != new_list:
+            snap = _capture_undo_snapshot()
+            st.session_state.players[p_id]["projects"] = new_list
+            added = [x for x in new_list if x not in old_list]
+            if added:
+                cid = added[-1]
+                card = PROJECT_BY_ID.get(cid, {})
+                deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
+                pl = st.session_state.players[p_id]
+                _record_action_entry(
+                    int(st.session_state.current_round),
+                    p_id,
+                    f"P{p_id} · {pl['city']}",
+                    cid,
+                    card.get("name", cid),
+                    "Project",
+                    deltas,
+                    snap,
+                )
 
 
 def callback_sync_techs(p_id: int) -> None:
     val = st.session_state.get(f"widget_techs_{p_id}")
     if val is not None:
-        st.session_state.players[p_id]["techs"] = list(val)
+        old_list = list(st.session_state.players[p_id]["techs"])
+        new_list = list(val)
+        if old_list != new_list:
+            snap = _capture_undo_snapshot()
+            st.session_state.players[p_id]["techs"] = new_list
+            added = [x for x in new_list if x not in old_list]
+            if added:
+                cid = added[-1]
+                card = PERMANENT_TECH_BY_CODE.get(cid, {})
+                pl = st.session_state.players[p_id]
+                _record_action_entry(
+                    int(st.session_state.current_round),
+                    p_id,
+                    f"P{p_id} · {pl['city']}",
+                    cid,
+                    card.get("name", cid),
+                    "Tech",
+                    {},
+                    snap,
+                )
 
 
 def callback_sync_skills(p_id: int) -> None:
     val = st.session_state.get(f"widget_skills_{p_id}")
     if val is not None:
-        st.session_state.players[p_id]["skills"] = list(val)
+        old_list = list(st.session_state.players[p_id]["skills"])
+        new_list = list(val)
+        if old_list != new_list:
+            snap = _capture_undo_snapshot()
+            st.session_state.players[p_id]["skills"] = new_list
+            added = [x for x in new_list if x not in old_list]
+            if added:
+                cid = added[-1]
+                card = SKILL_BY_CODE.get(cid, {})
+                pl = st.session_state.players[p_id]
+                _record_action_entry(
+                    int(st.session_state.current_round),
+                    p_id,
+                    f"P{p_id} · {pl['city']}",
+                    cid,
+                    card.get("name", cid),
+                    "Skill",
+                    {},
+                    snap,
+                )
 
 
 def callback_sync_problems(p_id: int) -> None:
     val = st.session_state.get(f"widget_problems_{p_id}")
     if val is not None:
-        st.session_state.players[p_id]["problems"] = list(val)
+        old_list = list(st.session_state.players[p_id]["problems"])
+        new_list = list(val)
+        if old_list != new_list:
+            snap = _capture_undo_snapshot()
+            st.session_state.players[p_id]["problems"] = new_list
+            added = [x for x in new_list if x not in old_list]
+            if added:
+                cid = added[-1]
+                card = PROBLEM_BY_ID.get(cid, {})
+                deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
+                pl = st.session_state.players[p_id]
+                _record_action_entry(
+                    int(st.session_state.current_round),
+                    p_id,
+                    f"P{p_id} · {pl['city']}",
+                    cid,
+                    card.get("name", cid),
+                    "Problem",
+                    deltas,
+                    snap,
+                )
 
 
 def callback_sync_coins(p_id: int) -> None:
@@ -276,14 +514,31 @@ def callback_reset_manual_points(p_id: int) -> None:
 
 
 def callback_event_picker_changed() -> None:
-    st.session_state.selected_event_id = st.session_state.get("widget_event_picker")
+    new_ev = st.session_state.get("widget_event_picker")
+    if new_ev != st.session_state.get("selected_event_id"):
+        snap = _capture_undo_snapshot()
+        st.session_state.selected_event_id = new_ev
+        if new_ev and new_ev in EVENT_BY_ID:
+            ev = EVENT_BY_ID[new_ev]
+            _record_action_entry(
+                int(st.session_state.current_round),
+                None,
+                "Semua Pemain",
+                new_ev,
+                ev["name"],
+                "Event",
+                {k: int(ev.get(k, 0)) for k in ("M", "E", "ENV", "QoL")},
+                snap,
+            )
 
 
 def callback_next_round() -> None:
+    snap = _capture_undo_snapshot()
     curr_ev = st.session_state.selected_event_id
     has_valid_ev = bool(curr_ev and curr_ev in EVENT_BY_ID)
+    prev_round = int(st.session_state.current_round)
     commit_entry: Dict[str, Any] = {
-        "round": int(st.session_state.current_round),
+        "round": prev_round,
         "event_id": curr_ev if has_valid_ev else None,
         "players": {},
     }
@@ -307,6 +562,16 @@ def callback_next_round() -> None:
                 pl["coins"] = max(0, int(pl["coins"]) + ev_coins)
                 pl["committed_event_coins"] = max(0, int(pl.get("committed_event_coins", 0)) + ev_coins)
                 st.session_state[f"widget_coins_{p_id}"] = pl["coins"]
+
+            combined_ev_delta = dict(ev_delta)
+            if ev_coins != 0:
+                combined_ev_delta["coins"] = ev_coins
+            if any(combined_ev_delta.values()):
+                st.session_state.last_deltas[p_id] = {
+                    "round": prev_round,
+                    "card": EVENT_BY_ID[curr_ev]["name"],
+                    "deltas": {k: v for k, v in combined_ev_delta.items() if v != 0},
+                }
 
         commit_entry["players"][p_id] = {
             "delta": ev_delta,
@@ -334,6 +599,18 @@ def callback_next_round() -> None:
         st.session_state.players[p_id]["active_techs_this_round"] = []
         st.session_state.players[p_id]["tech_activations_this_round"] = []
         st.session_state.players[p_id]["immune_this_round"] = False
+
+    ev_label = EVENT_BY_ID[curr_ev]["name"] if has_valid_ev else "Tanpa Event"
+    _record_action_entry(
+        prev_round,
+        None,
+        "Semua Pemain",
+        curr_ev or f"R{prev_round}",
+        f"Selesai Ronde {prev_round} ({ev_label})",
+        "Ronde",
+        {},
+        snap,
+    )
 
 
 def callback_prev_round() -> None:
@@ -391,6 +668,8 @@ def callback_reset_game() -> None:
     st.session_state.current_round = 1
     st.session_state.used_events = []
     st.session_state.round_event_history = []
+    st.session_state.action_history = []
+    st.session_state.last_deltas = {p_id: {} for p_id in range(1, 5)}
     st.session_state.selected_event_id = None
     if "widget_event_picker" in st.session_state:
         st.session_state.widget_event_picker = None
@@ -439,6 +718,7 @@ def callback_activate_tech(p_id: int, t_code: str) -> None:
     if t_code in pl["active_techs_this_round"]:
         return
 
+    snap = _capture_undo_snapshot()
     pl["active_techs_this_round"].append(t_code)
     st.session_state.tech_used_this_round[p_id][t_code] = True
 
@@ -452,17 +732,21 @@ def callback_activate_tech(p_id: int, t_code: str) -> None:
     for k in ("M", "E", "ENV", "QoL"):
         pl["accumulated_tech_stats"][k] += t_delta[k]
 
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     meta = TECH_ACTION_META.get(t_code, {})
 
     resolvable = get_resolvable_problems_for_tech(t_code, pl["techs"], pl["problems"])
     solved_pid = resolvable[0] if resolvable else None
 
+    effective_delta = dict(t_delta)
     if solved_pid:
         pl["problems"].remove(solved_pid)
         if f"widget_problems_{p_id}" in st.session_state:
             st.session_state[f"widget_problems_{p_id}"] = list(pl["problems"])
-        p_name = PROBLEM_BY_ID.get(solved_pid, {}).get("name", solved_pid)
+        pcard = PROBLEM_BY_ID.get(solved_pid, {})
+        p_name = pcard.get("name", solved_pid)
+        for k in ("M", "E", "ENV", "QoL"):
+            effective_delta[k] -= int(pcard.get(k, 0))
         pl["tech_log"].append(f"R{curr_r}: Aksi {t_code} selesaikan krisis [{p_name}] & +{meta.get('short_label', '')}")
     else:
         pl["tech_log"].append(f"R{curr_r}: Aksi {t_code} diaktifkan ({meta.get('short_label', '')})")
@@ -474,11 +758,24 @@ def callback_activate_tech(p_id: int, t_code: str) -> None:
             "solved_problem": solved_pid,
         }
     )
+    _record_action_entry(
+        curr_r,
+        p_id,
+        f"P{p_id} · {pl['city']}",
+        t_code,
+        tcard.get("name", t_code),
+        "Tech",
+        effective_delta,
+        snap,
+    )
 
 
 def callback_use_s1(p_id: int, prob_to_remove: str) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
+    pcard = PROBLEM_BY_ID.get(prob_to_remove, {})
+    delta = {k: -int(pcard.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
 
     if prob_to_remove in pl["problems"]:
         pl["problems"].remove(prob_to_remove)
@@ -490,13 +787,15 @@ def callback_use_s1(p_id: int, prob_to_remove: str) -> None:
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
 
-    p_name = PROBLEM_BY_ID.get(prob_to_remove, {}).get("name", prob_to_remove)
+    p_name = pcard.get("name", prob_to_remove)
     pl["tech_log"].append(f"R{curr_r}: S1 dipakai & terhapus (Amankan Krisis [{p_name}])")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S1", f"S1 Hapus {prob_to_remove}", "Skill", delta, snap)
 
 
 def callback_use_s1_fallback(p_id: int) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     if "S1" in pl["skills"]:
         pl["skills"].remove("S1")
         if f"widget_skills_{p_id}" in st.session_state:
@@ -504,55 +803,67 @@ def callback_use_s1_fallback(p_id: int) -> None:
     for k in ["M", "E", "ENV", "QoL"]:
         pl["bonus_stats"][k] += 2
     pl["tech_log"].append(f"R{curr_r}: S1 dipakai & terhapus (Dana Darurat +2 Semua Aspek)")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S1", "S1 Dana Darurat", "Skill", {"M": 2, "E": 2, "ENV": 2, "QoL": 2}, snap)
 
 
 def callback_use_s2(p_id: int) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     if "S2" in pl["skills"]:
         pl["skills"].remove("S2")
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
     pl["bonus_stats"]["ENV"] += 5
     pl["tech_log"].append(f"R{curr_r}: S2 dipakai & terhapus (+5 ENV)")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S2", "S2 Carbon Capture Boost", "Skill", {"ENV": 5}, snap)
 
 
 def callback_use_s3(p_id: int) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     if "S3" in pl["skills"]:
         pl["skills"].remove("S3")
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
     pl["bonus_stats"]["M"] += 5
     pl["tech_log"].append(f"R{curr_r}: S3 dipakai & terhapus (+5 M)")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S3", "S3 Traffic Override", "Skill", {"M": 5}, snap)
 
 
 def callback_use_s4(p_id: int) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     if "S4" in pl["skills"]:
         pl["skills"].remove("S4")
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
     pl["bonus_stats"]["QoL"] += 5
     pl["tech_log"].append(f"R{curr_r}: S4 dipakai & terhapus (+5 QoL)")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S4", "S4 Public Health Campaign", "Skill", {"QoL": 5}, snap)
 
 
 def callback_use_s5(p_id: int) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
     if "S5" in pl["skills"]:
         pl["skills"].remove("S5")
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
     pl["immune_this_round"] = True
     pl["tech_log"].append(f"R{curr_r}: S5 Cyber Shield aktif & terhapus (Kebal Event ronde ini)")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", "S5", "S5 Cyber Shield", "Skill", {}, snap)
 
 
 def callback_use_skill_solve_problem(p_id: int, s_code: str, prob_id: str) -> None:
+    snap = _capture_undo_snapshot()
     pl = st.session_state.players[p_id]
-    curr_r = st.session_state.current_round
+    curr_r = int(st.session_state.current_round)
+    pcard = PROBLEM_BY_ID.get(prob_id, {})
+    delta = {k: -int(pcard.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
 
     if prob_id in pl["problems"]:
         pl["problems"].remove(prob_id)
@@ -564,5 +875,6 @@ def callback_use_skill_solve_problem(p_id: int, s_code: str, prob_id: str) -> No
         if f"widget_skills_{p_id}" in st.session_state:
             st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
 
-    p_name = PROBLEM_BY_ID.get(prob_id, {}).get("name", prob_id)
+    p_name = pcard.get("name", prob_id)
     pl["tech_log"].append(f"R{curr_r}: {s_code} dipakai & terhapus (Amankan Krisis [{p_name}])")
+    _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", s_code, f"{s_code} Amankan {prob_id}", "Skill", delta, snap)

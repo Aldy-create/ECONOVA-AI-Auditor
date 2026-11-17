@@ -15,7 +15,7 @@ Aplikasi dipisahkan menjadi modul-modul berfokus tunggal agar mudah dipelihara d
 | `cards_data.py` | Database 197 kartu resmi (Project, Tech `T1–T5`, Skill `S1–S5`, Problem `PR01–PR20`, Event `EV01–EV13`), aturan kombinasi penyelesaian krisis (`PROBLEM_SOLUTION_RULES`), klasifikasi arketipe kota, serta engine perhitungan skor deterministik (`compute_player_score`). |
 | `styles.py` | Palet warna faksi permanen (`FACTION_THEMES`), CSS global **EcoNova Official Poster (Tactile Eco-Solarpunk Board Game HUD)** (`GLOBAL_STYLES_CSS`), Ribbon Headers, Tactile Card Shadows, styling custom input/multiselect/expander, dan CSS dinamis giliran aktif (`inject_faction_turn_styles`). |
 | `state_manager.py` | Inisialisasi `st.session_state`, definisi metadata aksi (`TECH_ACTION_META`), callback widget (`widget_*`), komitmen/rollback koin Event antar ronde, validasi kombinasi `T1–T5`, dan konsumsi `S1–S5`. |
-| `llm_service.py` | Pemuatan senyap `GROQ_API_KEY` (`st.secrets`, `.streamlit/secrets.toml`, atau environment), layanan chat Profesor Terra (`query_llm_game_master`), serta pengayaan narasi visi kota 2075 (`generate_llm_enhanced_narrative`). |
+| `llm_service.py` | Pemuatan senyap `GROQ_API_KEY` (`st.secrets`, `.streamlit/secrets.toml`, atau environment), layanan chat robot pemandu **EcoBot** (`query_llm_game_master`), serta pengayaan narasi visi kota 2075 (`generate_llm_enhanced_narrative`). |
 | `ui_components.py` | Komponen UI untuk Hero Banner, Tab 1 Live Tracker, Tab 2 Final Audit & Sertifikat 2075, dan Tab 3 AI Game Master. |
 
 ---

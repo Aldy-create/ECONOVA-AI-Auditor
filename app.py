@@ -42,9 +42,9 @@ st.set_page_config(
 _REQUIRED_MODULE_EXPORTS = (
     ("cards_data", ("PROBLEM_SOLUTION_RULES", "get_resolvable_problems_for_tech", "get_resolvable_problems_for_skill")),
     ("styles", ("FACTION_THEMES", "inject_global_styles", "inject_faction_turn_styles", "render_html")),
-    ("state_manager", ("TAB_OPTIONS", "init_session_state", "callback_switch_tab", "callback_lock_and_open_audit")),
+    ("state_manager", ("TAB_OPTIONS", "init_session_state", "callback_switch_tab", "callback_lock_and_open_audit", "callback_undo_last_action", "callback_apply_quick_card")),
     ("llm_service", ("get_groq_api_key", "query_llm_game_master", "generate_llm_enhanced_narrative")),
-    ("ui_components", ("render_hero_banner", "render_navigation_bar", "render_tab_tracker", "render_tab_audit", "render_tab_game_master")),
+    ("ui_components", ("render_hero_banner", "render_footer_bar", "render_navigation_bar", "render_tab_tracker", "render_tab_audit", "render_tab_game_master")),
 )
 for _mod_name, _req_attrs in _REQUIRED_MODULE_EXPORTS:
     _mod_obj = importlib.import_module(_mod_name)
@@ -54,6 +54,7 @@ for _mod_name, _req_attrs in _REQUIRED_MODULE_EXPORTS:
 from state_manager import init_session_state
 from styles import inject_global_styles
 from ui_components import (
+    render_footer_bar,
     render_hero_banner,
     render_navigation_bar,
     render_tab_audit,
@@ -76,6 +77,8 @@ def main() -> None:
         render_tab_audit()
     else:
         render_tab_game_master()
+
+    render_footer_bar()
 
 
 main()

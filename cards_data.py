@@ -5743,28 +5743,27 @@ def smart_rulebook_search(query: str) -> str:
 
     matched_cards.sort(key=lambda x: x[0], reverse=True)
 
-    out_lines = ["### 🤖 Jawaban Asisten Rulebook EcoNova *(Smart Local Knowledge Engine)*"]
+    out_lines = ["### EcoBot · Info Cepat Rulebook"]
 
     if matched_sections:
         for _, sec in matched_sections[:2]:
-            out_lines.append(f"#### 📖 {sec['title']}\n{sec['content']}")
+            out_lines.append(f"#### {sec['title']}\n{sec['content']}")
 
     if matched_cards:
-        out_lines.append("#### 🃏 Kartu Terkait yang Ditemukan di Database:")
+        out_lines.append("#### Kartu Terkait:")
         for _, c in matched_cards[:5]:
             out_lines.append(
-                f"- **{c['emoji']} [{c['id']}] {c['name']}** ({c['category']} · {c['district']}) — "
+                f"- **[{c['id']}] {c['name']}** ({c['category']} · {c['district']}) — "
                 f"Efek: `{c['effect_summary']}` | {c['description']}"
             )
 
     if not matched_sections and not matched_cards:
         out_lines.append(
-            "Berikut ringkasan cepat aturan inti **EcoNova: Sustainable City Builder**:\n"
-            "- **Baseline Awal:** Semua pemain mulai di City Center dengan **5 Koin** dan skor **M=50, E=50, ENV=50, QoL=50**.\n"
-            "- **Action Points (3 AP/Round):** Pindah wilayah = **1 AP**, Beli Project/Tech = **1 AP**, Aktifkan Skill / Selesaikan Problem via Tech = **2 AP**, Bayar Problem via Koin = **1 AP**.\n"
-            "- **City Center:** Berhenti/tiba di City Center mendapat **+3 Koin** (maks 1x per round).\n"
-            "- **Bonus Koin Akhir (R13):** Setiap kelipatan **20 Koin penuh** memberikan **+5 poin ke seluruh 4 aspek**.\n"
-            "- **Tie-Breaker Resmi:** `Average Score` $\\rightarrow$ `Jumlah Project Card` $\\rightarrow$ `Jumlah Permanent Tech` $\\rightarrow$ `Sisa Koin`."
+            "Ringkasan cepat aturan **EcoNova**:\n"
+            "- **Awal Main:** Mulai di City Center dengan **5 Koin** dan skor **50** di semua pilar (M, E, ENV, QoL).\n"
+            "- **3 AP/Ronde (di papan):** Pindah wilayah = **1 AP**, Beli Project/Tech = **1 AP**, Pakai Skill / Beresin Krisis via Tech = **2 AP**, Bayar Krisis via Koin = **1 AP**.\n"
+            "- **City Center & Koin Akhir:** Tiba di City Center = **+3 Koin** (1x/ronde). Tiap **20 Koin** di akhir = **+5 poin ke semua 4 pilar**.\n"
+            "- **Tie-Breaker:** `Average Score` -> `Jumlah Project` -> `Jumlah Tech` -> `Sisa Koin`."
         )
 
     return "\n\n".join(out_lines)

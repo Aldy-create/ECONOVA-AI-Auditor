@@ -74,9 +74,9 @@ GLOBAL_STYLES_CSS = """
     --text-primary: #164E33;
     --text-secondary: #3E5B4C;
     --card-cream: #FFFDF7;
-    --glass-bg: rgba(255, 253, 247, 0.96);
-    --glass-border: #C7DEC9;
-    --shadow-3d: 0 6px 0 rgba(22, 78, 51, 0.14), 0 12px 24px rgba(0, 0, 0, 0.06);
+    --glass-bg: rgba(255, 253, 247, 0.97);
+    --glass-border: #164E33;
+    --shadow-3d: 0 4px 0 #164E33;
 }
 
 @keyframes sunGlow {
@@ -101,9 +101,8 @@ section.main {
 }
 
 [data-testid="stHeader"] {
-    background: rgba(221, 240, 246, 0.45) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
+    background: transparent !important;
+    height: 2.2rem !important;
 }
 
 .stApp::before {
@@ -114,10 +113,9 @@ section.main {
     width: 420px;
     height: 420px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 236, 160, 0.55) 0%, rgba(255, 221, 120, 0.25) 35%, rgba(255, 221, 120, 0) 70%);
+    background: radial-gradient(circle, rgba(255, 236, 160, 0.42) 0%, rgba(255, 221, 120, 0.18) 35%, rgba(255, 221, 120, 0) 70%);
     pointer-events: none;
     z-index: 0;
-    animation: sunGlow 6s ease-in-out infinite;
 }
 
 h1, h2, h3, h4, .stat-outfit {
@@ -134,64 +132,78 @@ p, span, label, li, td, th {
     font-variant-numeric: tabular-nums;
 }
 
-.block-container {
-    max-width: 1480px !important;
-    padding-top: 1.2rem !important;
-    padding-bottom: 6rem !important;
+/* Alas Papan Utama (Main Board-Mat Container) agar kokoh di atas background */
+.block-container,
+[data-testid="stMainBlockContainer"] {
+    max-width: 1460px !important;
+    margin: 1.25rem auto 2.25rem auto !important;
+    padding: 1.25rem 1.6rem 1.45rem 1.6rem !important;
+    background: rgba(255, 253, 247, 0.97) !important;
+    border: 3px solid #164E33 !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 0 #164E33 !important;
+    position: relative;
+    z-index: 1;
+}
+@media (max-width: 768px) {
+    .block-container,
+    [data-testid="stMainBlockContainer"] {
+        margin: 0.5rem 0.5rem 1.25rem 0.5rem !important;
+        padding: 0.9rem 0.9rem 1.1rem 0.9rem !important;
+        border-radius: 16px !important;
+    }
 }
 
 /* Stateful Top Navigation Bar Shell */
 div[class*="st-key-nav_bar_shell"] {
-    background: #FFFDF7 !important;
-    border: 2px solid #B7D5C4 !important;
-    border-radius: 18px !important;
+    background: #F4F1E1 !important;
+    border: 2px solid #164E33 !important;
+    border-radius: 16px !important;
     padding: 8px 10px !important;
-    box-shadow: 0 5px 0 rgba(22, 78, 51, 0.14), 0 10px 20px rgba(0, 0, 0, 0.05) !important;
+    box-shadow: 0 4px 0 #164E33 !important;
     margin-bottom: 14px !important;
 }
 div[class*="st-key-nav_btn_"] button {
-    border-radius: 13px !important;
+    border-radius: 12px !important;
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-size: 0.95rem !important;
     padding: 10px 16px !important;
 }
 
-/* Tactile Eco-Solarpunk Card Panels */
+/* Tactile Board-Game Card Panels (Solid & Berbobot, Zero Floating Blur) */
 div[data-testid="stVerticalBlockBorderWrapper"] > div,
 div[class*="st-key-panel_"],
 .eco-card {
-    background: rgba(255, 253, 247, 0.94) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    border: 2px solid #CFE2D4 !important;
-    border-radius: 20px !important;
-    box-shadow: var(--shadow-3d) !important;
-    padding: 18px 20px !important;
+    background: #FFFDF7 !important;
+    border: 2px solid #164E33 !important;
+    border-radius: 18px !important;
+    box-shadow: 0 4px 0 #164E33 !important;
+    padding: 16px 18px !important;
     margin-bottom: 14px !important;
-    transition: all 0.22s ease !important;
+    transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] > div:hover,
 div[class*="st-key-panel_"]:hover,
 .eco-card:hover {
-    border-color: rgba(22, 163, 74, 0.45) !important;
-    box-shadow: 0 7px 0 rgba(22, 78, 51, 0.16), 0 14px 28px rgba(0, 0, 0, 0.08) !important;
+    border-color: #1E6B47 !important;
+    box-shadow: 0 5px 0 #164E33 !important;
 }
 
 /* Champion Card & Official Diploma Frame */
 .eco-card-champion {
     background: linear-gradient(135deg, #FFFDF7 0%, #FEF3C7 60%, #FFFBEB 100%) !important;
-    border: 2.5px solid #EAB308 !important;
-    border-radius: 22px !important;
-    box-shadow: 0 6px 0 rgba(180, 83, 9, 0.22), 0 14px 32px rgba(234, 179, 8, 0.18) !important;
-    padding: 24px 28px !important;
-    margin-bottom: 18px !important;
+    border: 2.5px solid #B45309 !important;
+    border-radius: 20px !important;
+    box-shadow: 0 5px 0 #92400E !important;
+    padding: 22px 24px !important;
+    margin-bottom: 16px !important;
 }
 .badge-champion {
     display: inline-flex;
     align-items: center;
     background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%) !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
-    box-shadow: 0 4px 0 #0D3321 !important;
+    border: 2px solid #0D3321 !important;
+    box-shadow: 0 3px 0 #0D3321 !important;
     color: #FFFFFF !important;
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-weight: 800 !important;
@@ -206,9 +218,9 @@ div[class*="st-key-panel_"]:hover,
     border: 3px solid #164E33;
     outline: 2px dashed #D97706;
     outline-offset: -8px;
-    border-radius: 22px;
-    padding: 28px 32px;
-    box-shadow: 0 8px 0 rgba(22, 78, 51, 0.18), 0 16px 36px rgba(15, 42, 29, 0.09);
+    border-radius: 20px;
+    padding: 26px 30px;
+    box-shadow: 0 5px 0 #164E33;
     margin-bottom: 18px;
 }
 
@@ -349,16 +361,158 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
     font-weight: 800 !important;
 }
 
+/* Top HUD Bar & Bottom Footer Lock */
+.eco-top-hud {
+    background: #164E33;
+    color: #FFFDF7;
+    border: 2px solid #0D3321;
+    border-radius: 14px;
+    padding: 9px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 0 #0D3321;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.eco-top-hud * {
+    color: #FFFDF7;
+}
+.eco-hud-round-pill {
+    background: #EAB308;
+    color: #0D3321 !important;
+    font-family: 'Fredoka', 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 0.84rem;
+    padding: 4px 14px;
+    border-radius: 999px;
+    border: 2px solid #FEF08A;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+.eco-hud-status-pill {
+    background: rgba(255, 253, 247, 0.14);
+    border: 1.5px solid rgba(255, 253, 247, 0.35);
+    color: #FFFDF7 !important;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+.eco-footer-bar {
+    background: #164E33;
+    color: #FFFDF7;
+    border: 2px solid #0D3321;
+    border-radius: 14px;
+    padding: 9px 16px;
+    margin-top: 16px;
+    box-shadow: 0 4px 0 #0D3321;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+.eco-footer-bar * {
+    color: #FFFDF7;
+}
+
+/* Unified Card Deck, Round Banner, Delta Badges & Log Items */
+div[class*="st-key-panel_unified_card_deck"] {
+    background: #F7F4EA !important;
+    border: 2px solid #164E33 !important;
+    border-radius: 18px !important;
+    box-shadow: 0 4px 0 #164E33 !important;
+    padding: 14px 16px !important;
+    margin-bottom: 14px !important;
+}
+.eco-round-banner {
+    background: linear-gradient(90deg, #164E33 0%, #1E6B47 100%);
+    color: #FFFDF7;
+    border: 2px solid #0D3321;
+    border-radius: 14px;
+    padding: 10px 15px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 0 #0D3321;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.eco-round-banner * {
+    color: #FFFDF7;
+}
+.eco-card-preview {
+    background: #FFFDF7;
+    border: 2px solid #164E33;
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 3px 0 #164E33;
+    margin: 6px 0 10px 0;
+}
+.eco-log-item {
+    background: #FFFDF7;
+    border: 1.5px solid #164E33;
+    border-left: 4px solid #1E6B47;
+    border-radius: 10px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 0.77rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.eco-delta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin: 4px 0 6px 0;
+}
+.eco-delta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1.5px solid;
+    font-variant-numeric: tabular-nums;
+}
+.eco-delta-pos {
+    background: #DCFCE7;
+    color: #14532D !important;
+    border-color: #16A34A;
+}
+.eco-delta-gold {
+    background: #FEF3C7;
+    color: #92400E !important;
+    border-color: #D97706;
+}
+.eco-delta-neg {
+    background: #FFE4E6;
+    color: #9F1239 !important;
+    border-color: #E11D48;
+}
+
 /* Hero Banner (EcoNova Poster Command Deck) */
 .eco-hero-banner {
     position: relative;
     overflow: hidden;
     background: linear-gradient(135deg, #FFFDF7 0%, #F4FBF6 60%, #E7F5FC 100%);
-    border: 2.5px solid #B7D5C4;
-    border-radius: 20px;
-    padding: 14px 22px;
+    border: 2px solid #164E33;
+    border-radius: 18px;
+    padding: 13px 20px;
     margin-bottom: 12px;
-    box-shadow: 0 6px 0 rgba(22, 78, 51, 0.14), 0 12px 24px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 0 #164E33;
 }
 .eco-hero-banner::before {
     content: "";
@@ -455,53 +609,59 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
 .eco-pill-e *, .pill-e * { color: #B45309 !important; }
 .eco-pill-qol *, .pill-qol * { color: #E11D48 !important; }
 
-/* Tactile Board-Game Buttons */
+/* Tactile Board-Game Buttons (Physical 3px Press Feel) */
 button[kind="primary"],
 [data-testid="stBaseButton-primary"],
 div[class*="st-key-btn_next_round"] button {
     background: linear-gradient(180deg, #1E6B47 0%, #164E33 100%) !important;
     color: #FFFFFF !important;
-    border: 1.5px solid #144A31 !important;
-    border-bottom: 3.5px solid #0E3B26 !important;
-    border-radius: 14px !important;
+    border: 2px solid #0D3321 !important;
+    border-radius: 13px !important;
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-weight: 800 !important;
-    box-shadow: 0 4px 10px rgba(22, 78, 51, 0.18) !important;
-    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.18s ease !important;
+    box-shadow: 0 4px 0 #0D3321 !important;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.16s ease !important;
 }
 button[kind="primary"] *,
 [data-testid="stBaseButton-primary"] *,
 div[class*="st-key-btn_next_round"] button * {
     color: #FFFFFF !important;
 }
-button[kind="primary"]:hover,
-[data-testid="stBaseButton-primary"]:hover,
-div[class*="st-key-btn_next_round"] button:hover {
+button[kind="primary"]:hover:not(:disabled),
+[data-testid="stBaseButton-primary"]:hover:not(:disabled),
+div[class*="st-key-btn_next_round"] button:hover:not(:disabled) {
     background: linear-gradient(180deg, #237A51 0%, #19593B 100%) !important;
     transform: translateY(-1px) !important;
+    box-shadow: 0 5px 0 #0D3321 !important;
 }
-button[kind="primary"]:active,
-[data-testid="stBaseButton-primary"]:active,
-div[class*="st-key-btn_next_round"] button:active,
-div[class*="st-key-btn_prev_round"] button:active {
-    transform: translateY(2px) !important;
-    border-bottom-width: 1.5px !important;
-    box-shadow: 0 2px 6px rgba(22, 78, 51, 0.12) !important;
+button[kind="primary"]:active:not(:disabled),
+[data-testid="stBaseButton-primary"]:active:not(:disabled),
+div[class*="st-key-btn_next_round"] button:active:not(:disabled),
+div[class*="st-key-btn_prev_round"] button:active:not(:disabled) {
+    transform: translateY(3px) !important;
+    box-shadow: 0 1px 0 #164E33 !important;
 }
 button[kind="secondary"],
 [data-testid="stBaseButton-secondary"] {
     background: #FFFDF7 !important;
     color: #164E33 !important;
-    border: 1.5px solid #B7D5C4 !important;
-    border-bottom: 3px solid #94B8A4 !important;
+    border: 2px solid #164E33 !important;
     border-radius: 13px !important;
     font-family: 'Outfit', sans-serif !important;
     font-weight: 700 !important;
+    box-shadow: 0 4px 0 #164E33 !important;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.16s ease !important;
 }
 button[kind="secondary"]:hover:not(:disabled),
 [data-testid="stBaseButton-secondary"]:hover:not(:disabled) {
-    background: #F0FDF4 !important;
-    border-color: #16A34A !important;
+    background: #ECFDF5 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 5px 0 #164E33 !important;
+}
+button[kind="secondary"]:active:not(:disabled),
+[data-testid="stBaseButton-secondary"]:active:not(:disabled) {
+    transform: translateY(3px) !important;
+    box-shadow: 0 1px 0 #164E33 !important;
 }
 
 /* Custom Clean Input, Select, Multiselect, Labels & Expander Drawer Styling */
@@ -950,47 +1110,50 @@ def inject_global_styles() -> None:
 
 
 def inject_faction_turn_styles(active_player_id: int) -> None:
-    """Menyuntikkan CSS dinamis per faksi permanen bergaya kartu fisik EcoNova & segmented turn switcher."""
+    """Menyuntikkan CSS dinamis per faksi permanen bergaya komponen papan fisik EcoNova."""
     faction_css_blocks = [
         """
         div[class*="st-key-turn_switcher_shell"] {
-            background: #FFFDF7 !important;
-            border: 1.5px solid #B7D5C4 !important;
-            border-radius: 16px !important;
+            background: #F4F1E1 !important;
+            border: 2px solid #164E33 !important;
+            border-radius: 14px !important;
             padding: 6px 8px !important;
-            box-shadow: 0 4px 0 rgba(22, 78, 51, 0.10), inset 0 1px 3px rgba(22, 78, 51, 0.04) !important;
+            box-shadow: 0 4px 0 #164E33 !important;
             margin-top: 8px !important;
         }
         """
     ]
     for f_pid, f_th in FACTION_THEMES.items():
         is_turn = (f_pid == active_player_id)
-        b_width = "2.5px"
-        b_color = f_th["accent"] if is_turn else f_th["border"]
+        b_width = "2.5px" if is_turn else "2px"
+        b_color = f_th["accent"] if is_turn else "#164E33"
         shadow_rule = (
-            f"0 6px 0 rgba(22, 78, 51, 0.16), {f_th['glow']}"
+            f"0 5px 0 {f_th['dark']}"
             if is_turn
-            else "0 6px 0 rgba(22, 78, 51, 0.14), 0 12px 24px rgba(0, 0, 0, 0.06)"
+            else "0 4px 0 #164E33"
         )
         bg_rule = (
-            f"linear-gradient(180deg, rgba(255, 253, 247, 0.94) 0%, rgba(255, 253, 247, 0.94) 72%, {f_th['tint']} 100%)"
+            f"linear-gradient(180deg, #FFFDF7 0%, #FFFDF7 72%, {f_th['tint']} 100%)"
             if is_turn
-            else "rgba(255, 253, 247, 0.94)"
+            else "#FFFDF7"
         )
         turn_btn_css = (
             f"""
             div[class*="st-key-btn_turn_p{f_pid}"] button {{
                 background: linear-gradient(180deg, {f_th['accent']} 0%, {f_th['dark']} 100%) !important;
                 color: #FFFFFF !important;
-                border: 1.5px solid {f_th['dark']} !important;
-                border-bottom: 3.5px solid #0E3B26 !important;
+                border: 2px solid #0D3321 !important;
                 border-radius: 999px !important;
                 font-family: 'Fredoka', 'Outfit', sans-serif !important;
                 font-weight: 800 !important;
-                box-shadow: 0 4px 12px {f_th['border']} !important;
+                box-shadow: 0 4px 0 #0D3321 !important;
             }}
             div[class*="st-key-btn_turn_p{f_pid}"] button * {{
                 color: #FFFFFF !important;
+            }}
+            div[class*="st-key-btn_turn_p{f_pid}"] button:active {{
+                transform: translateY(3px) !important;
+                box-shadow: 0 1px 0 #0D3321 !important;
             }}
             """
             if is_turn
@@ -998,17 +1161,22 @@ def inject_faction_turn_styles(active_player_id: int) -> None:
             div[class*="st-key-btn_turn_p{f_pid}"] button {{
                 background: #FFFDF7 !important;
                 color: {f_th['dark']} !important;
-                border: 1.5px solid {f_th['border']} !important;
-                border-bottom: 3px solid {f_th['border']} !important;
+                border: 2px solid #164E33 !important;
                 border-radius: 999px !important;
                 font-family: 'Fredoka', 'Outfit', sans-serif !important;
                 font-weight: 700 !important;
-                transition: all 0.18s ease !important;
+                box-shadow: 0 4px 0 #164E33 !important;
+                transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.16s ease !important;
             }}
             div[class*="st-key-btn_turn_p{f_pid}"] button:hover {{
                 background: {f_th['tint']} !important;
                 border-color: {f_th['accent']} !important;
                 transform: translateY(-1px) !important;
+                box-shadow: 0 5px 0 #164E33 !important;
+            }}
+            div[class*="st-key-btn_turn_p{f_pid}"] button:active {{
+                transform: translateY(3px) !important;
+                box-shadow: 0 1px 0 #164E33 !important;
             }}
             div[class*="st-key-btn_turn_p{f_pid}"] button * {{
                 color: {f_th['dark']} !important;
@@ -1024,7 +1192,7 @@ def inject_faction_turn_styles(active_player_id: int) -> None:
             }}
             div[class*="st-key-panel_tracker_p{f_pid}"]:hover {{
                 border-color: {f_th['accent']} !important;
-                box-shadow: 0 7px 0 rgba(22, 78, 51, 0.16), {f_th['glow']} !important;
+                box-shadow: 0 5px 0 {f_th['dark']} !important;
             }}
             {turn_btn_css}
             """

@@ -1,6 +1,6 @@
 """
 llm_service.py — Silent API Key Loading, Groq AI Game Master & Narrative Enhancer
-Menangani integrasi Groq LLM (Profesor Terra & Narasi Kota 2075) dengan fallback lokal otomatis.
+Menangani integrasi Groq LLM (EcoBot & Narasi Kota 2075) dengan fallback lokal otomatis.
 """
 
 import os
@@ -68,13 +68,19 @@ def query_llm_game_master(user_question: str, chat_history: List[Dict[str, str]]
         f"### {sec['title']}\n{sec['content']}" for sec in RULEBOOK_SECTIONS
     )
     sys_prompt = (
-        "Kamu adalah Profesor Terra, AI Game Master & Official Rulebook Assistant untuk board game "
-        "'EcoNova: Sustainable City Builder'. Jawablah dalam Bahasa Indonesia yang ramah, terstruktur, "
-        "dan akurat 100% sesuai Rulebook resmi berikut.\n\n"
+        "Kamu adalah EcoBot, robot pemandu game yang ramah dan santai buat board game "
+        "'EcoNova: Sustainable City Builder'.\n\n"
+        "ATURAN GAYA BICARA WAJIB:\n"
+        "1. Pakai bahasa Indonesia sehari-hari yang santai, luwes, dan akrab kayak teman main board game "
+        "(hindari bahasa baku yang kaku, formal, atau terlalu akademis).\n"
+        "2. Jawab SINGKAT dan langsung ke inti (to-the-point): maksimal 2–4 kalimat pendek atau poin-poin "
+        "singkat yang gampang dibaca cepat pas lagi main. Jangan bertele-tele atau bikin paragraf panjang "
+        "kecuali pemain memang minta penjelasan detail.\n"
+        "3. Tetap 100% AKURAT sesuai Rulebook resmi di bawah. Sebutkan kode ID kartu (misal P001, T1, S1, "
+        "PR01, EV01), biaya koin, AP (dikelola di papan fisik meja), syarat Tech (T1–T5), atau perubahan stat "
+        "(M, E, ENV, QoL) dengan tepat tanpa pernah mengarang aturan.\n\n"
         f"RINGKASAN RULEBOOK RESMI:\n{rules_summary}\n\n"
-        f"DATA KARTU & ATURAN TERKAIT PERTANYAAN:\n{local_context}\n\n"
-        "Jangan pernah mengarang aturan di luar Rulebook. Sebutkan kode ID kartu (misal P001, T1, S1, PR01, EV01), "
-        "angka AP (dikelola di papan fisik meja), harga koin, syarat Tech (T1-T5), dan perubahan stat (M, E, ENV, QoL) secara presisi."
+        f"DATA KARTU & ATURAN TERKAIT PERTANYAAN:\n{local_context}"
     )
     msgs = [SystemMessage(content=sys_prompt)]
     for msg in chat_history[-6:]:
