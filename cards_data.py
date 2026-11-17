@@ -4828,12 +4828,79 @@ def calculate_coin_bonus(coins: int) -> int:
     return (c // 20) * 5
 
 
+# Matriks Aturan Resmi Penyelesaian Problem Card (Rulebook Bab IX)
+# Setiap Problem memiliki daftar alternatif kombinasi syarat (DNF: OR antar-grup, AND di dalam grup '+').
+# Daftar kosong [] berarti hanya dapat diselesaikan dengan membayar Koin.
+PROBLEM_SOLUTION_RULES: Dict[str, List[List[str]]] = {
+    "PR01": [["T3"], ["S2"]],
+    "PR02": [["T2"], ["S3"]],
+    "PR03": [["T1"]],
+    "PR04": [["T5"]],
+    "PR05": [["T5"]],
+    "PR06": [["S1"], ["S4"]],
+    "PR07": [["T3"], ["T5"]],
+    "PR08": [["T1", "T2"]],
+    "PR09": [["T4"]],
+    "PR10": [["T2"], ["S5"]],
+    "PR11": [["T1", "T3"], ["S2"]],
+    "PR12": [],
+    "PR13": [["T5"]],
+    "PR14": [],
+    "PR15": [["T3"]],
+    "PR16": [["T2", "T3"]],
+    "PR17": [["T1"]],
+    "PR18": [["T3"]],
+    "PR19": [["T2"], ["S1"]],
+    "PR20": [["T1", "T3", "T5"]],
+}
+
+
+def get_resolvable_problems_for_tech(
+    tech_code: str,
+    owned_techs: List[str],
+    active_problems: List[str],
+) -> List[str]:
+    """
+    Mengembalikan daftar Problem Card aktif yang dapat diselesaikan saat Tech Card `tech_code`
+    diaktifkan, dengan memeriksa seluruh syarat kombinasi ('+') di Rulebook Bab IX.
+    """
+    tech_set = set(owned_techs or [])
+    if tech_code not in tech_set:
+        return []
+    resolvable: List[str] = []
+    for pid in active_problems or []:
+        combos = PROBLEM_SOLUTION_RULES.get(pid, [])
+        for combo in combos:
+            if tech_code in combo and all(req.startswith("T") and req in tech_set for req in combo):
+                resolvable.append(pid)
+                break
+    return resolvable
+
+
+def get_resolvable_problems_for_skill(
+    skill_code: str,
+    active_problems: List[str],
+) -> List[str]:
+    """
+    Mengembalikan daftar Problem Card aktif yang cocok diamankan oleh Consumable Skill `skill_code`
+    berdasarkan Rulebook Bab IX.
+    """
+    resolvable: List[str] = []
+    for pid in active_problems or []:
+        combos = PROBLEM_SOLUTION_RULES.get(pid, [])
+        for combo in combos:
+            if skill_code in combo and len(combo) == 1:
+                resolvable.append(pid)
+                break
+    return resolvable
+
+
 def classify_city_archetype(M: int, E: int, ENV: int, QoL: int) -> Dict[str, Any]:
     """
-    Klasifikasi deterministik Archetype Kota Masa Depan berdasarkan skor akhir 4 aspek.
+    Klasifikasi deterministik Archetype Kota Masa Depan berdasarkan skor akhir 4 aspek (Rulebook Bab XI.5).
     Aturan Prioritas:
-    1. Uneven / At-Risk City: Ada minimal satu aspek < 40 atau Average Score < 50 (atau ketimpangan ekstrem >= 30).
-    2. Balanced Sustainable Metropolis: Avg >= 75 dan semua aspek >= 65 (atau semua aspek >= 60 dengan selisih <= 15).
+    1. Uneven / At-Risk City: Ada minimal satu aspek < 40, Average Score < 50, atau spread >= 30.
+    2. Balanced Sustainable Metropolis: Avg >= 75 dan keempat aspek seimbang (min_val >= 60 dan spread < 30).
     3. Green Eco City: ENV adalah skor tertinggi dan ENV >= 70.
     4. Smart Energy City: E adalah skor tertinggi dan E >= 70.
     5. Connected Mobility City: M adalah skor tertinggi dan M >= 70.
@@ -4853,23 +4920,23 @@ def classify_city_archetype(M: int, E: int, ENV: int, QoL: int) -> Dict[str, Any
     max_val = scores[max_aspect]
     spread = max_val - min_val
 
-    if min_val < 40 or avg_score < 50:
+    if min_val < 40 or avg_score < 50 or spread >= 30:
         archetype = "Uneven / At-Risk City"
         emoji = "⚠️"
         color = "#BE123C"
         tagline = "Kota dengan Ketimpangan Struktural & Kerentanan Krisis"
         reason = (
-            f"Terdapat pilar kota di bawah ambang aman (<40) yaitu {min_aspect} ({min_val}) "
-            f"atau rata-rata skor kota ({avg_score}) masih di bawah 50."
+            f"Terdapat pilar di bawah ambang aman (<40: {min_aspect} {min_val}), "
+            f"rata-rata skor di bawah 50 ({avg_score}), atau ketimpangan antar aspek >= 30 (selisih {spread})."
         )
-    elif avg_score >= 75 and min_val >= 65:
+    elif avg_score >= 75 and min_val >= 60 and spread < 30:
         archetype = "Balanced Sustainable Metropolis"
         emoji = "🌟"
         color = "#15803D"
         tagline = "Metropolis Solarpunk Paripurna & Berketahanan Holistik"
         reason = (
-            f"Rata-rata skor mencapai {avg_score} (>=75) dan seluruh 4 aspek berada di atas 65 "
-            f"(terendah: {min_aspect} {min_val}, tertinggi: {max_aspect} {max_val})."
+            f"Rata-rata skor mencapai {avg_score} (>=75) dan keempat aspek seimbang "
+            f"(terendah: {min_aspect} {min_val} >= 60, selisih {spread} < 30)."
         )
     elif ENV >= 70 and ENV == max_val:
         archetype = "Green Eco City"
@@ -5248,12 +5315,14 @@ def compute_player_score(
     accumulated_event_coins: int = 0,
     is_immune: bool = False,
     manual_delta: Optional[Dict[str, int]] = None,
+    accumulated_tech_stats: Optional[Dict[str, int]] = None,
 ) -> Dict[str, Any]:
     """
     Pure Python Deterministic Score Engine sesuai spesifikasi resmi EcoNova:
     - Baseline: M=50, E=50, ENV=50, QoL=50
     - Tambah stat dari Project Cards yang dibangun
-    - Tambah stat dari Permanent Tech (T1–T5) yang telah diaktifkan via tombol aksi (atau seluruhnya pada Final Audit)
+    - Tambah akumulasi stat Permanent Tech (T1–T5) dari seluruh aktivasi tombol aksi lintas ronde (accumulated_tech_stats),
+      atau evaluasi stat tech aktif sebagai fallback jika accumulated_tech_stats tidak diberikan
     - Tambah stat dari Consumable Skill (S1–S5) yang dikonsumsi (via skill_bonus accumulator)
     - Kurangi penalti dari Failed Problem Cards
     - Tambah akumulasi dampak Event Card masa lalu + modifier live Event Card aktif (dengan imunitas S5 jika aktif)
@@ -5289,17 +5358,30 @@ def compute_player_score(
             proj_delta["QoL"] += card["QoL"]
             district_counts[card["district"]] = district_counts.get(card["district"], 0) + 1
 
+    # Daftar Permanent Tech yang dimiliki pemain untuk hitungan tech_count, tie-breaker, & syarat proyek
     selected_techs: List[Dict[str, Any]] = []
-    # Efek stat kartu Tech hanya berlaku saat tombol aksi ditekan (atau seluruhnya saat Final Audit)
-    eval_tech_codes = active_tech_codes if active_tech_codes is not None else tech_codes
-    for tcode in eval_tech_codes:
+    for tcode in tech_codes:
         tcard = PERMANENT_TECH_BY_CODE.get(tcode)
         if tcard:
             selected_techs.append(tcard)
-            tech_delta["M"] += tcard["M"]
-            tech_delta["E"] += tcard["E"]
-            tech_delta["ENV"] += tcard["ENV"]
-            tech_delta["QoL"] += tcard["QoL"]
+
+    # Sumber tech_delta: gunakan akumulator permanen lintas ronde jika tersedia (tanpa penghitungan ganda)
+    if accumulated_tech_stats is not None:
+        tech_delta = {
+            "M": int(accumulated_tech_stats.get("M", 0)),
+            "E": int(accumulated_tech_stats.get("E", 0)),
+            "ENV": int(accumulated_tech_stats.get("ENV", 0)),
+            "QoL": int(accumulated_tech_stats.get("QoL", 0)),
+        }
+    else:
+        eval_tech_codes = active_tech_codes if active_tech_codes is not None else tech_codes
+        for tcode in eval_tech_codes:
+            tcard = PERMANENT_TECH_BY_CODE.get(tcode)
+            if tcard:
+                tech_delta["M"] += tcard["M"]
+                tech_delta["E"] += tcard["E"]
+                tech_delta["ENV"] += tcard["ENV"]
+                tech_delta["QoL"] += tcard["QoL"]
 
     selected_skills: List[Dict[str, Any]] = []
     for scode in used_skill_codes:
@@ -5334,6 +5416,8 @@ def compute_player_score(
     event_coins = int(accumulated_event_coins or 0)
     events_log = []
     live_event_note = ""
+    live_event_modifier = {"M": 0, "E": 0, "ENV": 0, "QoL": 0}
+    live_event_coins = 0
 
     if include_events:
         ev_eval = evaluate_events_for_player(project_ids, tech_codes)
@@ -5344,6 +5428,8 @@ def compute_player_score(
         single_ev = evaluate_single_event_live(
             active_event_id, project_ids, tech_codes, is_immune=is_immune
         )
+        live_event_modifier = dict(single_ev["delta"])
+        live_event_coins = int(single_ev["coins"])
         for k in ("M", "E", "ENV", "QoL"):
             event_delta[k] += single_ev["delta"][k]
         event_coins += single_ev["coins"]
@@ -5406,6 +5492,8 @@ def compute_player_score(
         "prob_delta": prob_delta,
         "event_delta": event_delta,
         "event_coins": event_coins,
+        "live_event_modifier": live_event_modifier,
+        "live_event_coins": live_event_coins,
         "events_log": events_log,
         "live_event_note": live_event_note,
         "active_event_id": active_event_id,
