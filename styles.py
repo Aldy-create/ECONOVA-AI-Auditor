@@ -13,53 +13,58 @@ import streamlit as st
 
 @st.cache_data
 def get_econova_bg_uri() -> str:
-    """Memuat latar ilustrasi web EcoNova (WebP) sebagai Data URI base64 agar selalu tampil."""
-    bg_path = Path(__file__).resolve().parent / "assets" / "econova_bg.webp"
-    if not bg_path.is_file():
-        return ""
-    encoded = base64.b64encode(bg_path.read_bytes()).decode("ascii")
-    return f"data:image/webp;base64,{encoded}"
+    """Memuat latar ilustrasi Solarpunk EcoNova (assets/econova_bg.png) sebagai Data URI base64."""
+    assets_dir = Path(__file__).resolve().parent / "assets"
+    png_path = assets_dir / "econova_bg.png"
+    if png_path.is_file():
+        encoded = base64.b64encode(png_path.read_bytes()).decode("ascii")
+        return f"data:image/png;base64,{encoded}"
+    webp_path = assets_dir / "econova_bg.webp"
+    if webp_path.is_file():
+        encoded = base64.b64encode(webp_path.read_bytes()).decode("ascii")
+        return f"data:image/webp;base64,{encoded}"
+    return ""
 
 FACTION_THEMES: Dict[int, Dict[str, str]] = {
     1: {
-        "name": "Faksi Emerald",
-        "short": "P1 · Emerald",
-        "accent": "#059669",
-        "dark": "#047857",
-        "tint": "rgba(16, 185, 129, 0.10)",
-        "border": "rgba(5, 150, 105, 0.55)",
-        "glow": "0 0 0 3px rgba(16, 185, 129, 0.28), 0 12px 32px rgba(5, 150, 105, 0.22)",
-        "badge_bg": "rgba(5, 150, 105, 0.14)",
+        "name": "Faksi Green Park",
+        "short": "P1 · Green Park",
+        "accent": "#16A34A",
+        "dark": "#15803D",
+        "tint": "rgba(22, 163, 74, 0.10)",
+        "border": "rgba(22, 163, 74, 0.55)",
+        "glow": "0 0 0 3px rgba(22, 163, 74, 0.28), 0 12px 32px rgba(22, 163, 74, 0.22)",
+        "badge_bg": "#DCFCE7",
     },
     2: {
-        "name": "Faksi Sky Blue",
-        "short": "P2 · Sky Blue",
+        "name": "Faksi Water & Transit",
+        "short": "P2 · Hydro Transit",
         "accent": "#0284C7",
         "dark": "#0369A1",
         "tint": "rgba(2, 132, 199, 0.10)",
         "border": "rgba(2, 132, 199, 0.55)",
         "glow": "0 0 0 3px rgba(2, 132, 199, 0.28), 0 12px 32px rgba(2, 132, 199, 0.22)",
-        "badge_bg": "rgba(2, 132, 199, 0.14)",
+        "badge_bg": "#E0F2FE",
     },
     3: {
-        "name": "Faksi Amber",
-        "short": "P3 · Amber",
-        "accent": "#D97706",
-        "dark": "#B45309",
-        "tint": "rgba(245, 158, 11, 0.10)",
-        "border": "rgba(217, 119, 6, 0.55)",
-        "glow": "0 0 0 3px rgba(245, 158, 11, 0.28), 0 12px 32px rgba(217, 119, 6, 0.22)",
-        "badge_bg": "rgba(245, 158, 11, 0.16)",
+        "name": "Faksi Residential",
+        "short": "P3 · Terracotta",
+        "accent": "#DC2626",
+        "dark": "#B91C1C",
+        "tint": "rgba(220, 38, 38, 0.09)",
+        "border": "rgba(220, 38, 38, 0.55)",
+        "glow": "0 0 0 3px rgba(220, 38, 38, 0.26), 0 12px 32px rgba(220, 38, 38, 0.20)",
+        "badge_bg": "#FEE2E2",
     },
     4: {
-        "name": "Faksi Violet",
-        "short": "P4 · Violet",
-        "accent": "#7C3AED",
-        "dark": "#6D28D9",
-        "tint": "rgba(124, 58, 237, 0.10)",
-        "border": "rgba(124, 58, 237, 0.55)",
-        "glow": "0 0 0 3px rgba(124, 58, 237, 0.28), 0 12px 32px rgba(124, 58, 237, 0.22)",
-        "badge_bg": "rgba(124, 58, 237, 0.14)",
+        "name": "Faksi City Center",
+        "short": "P4 · Solar Gold",
+        "accent": "#D97706",
+        "dark": "#B45309",
+        "tint": "rgba(217, 119, 6, 0.10)",
+        "border": "rgba(217, 119, 6, 0.55)",
+        "glow": "0 0 0 3px rgba(217, 119, 6, 0.28), 0 12px 32px rgba(217, 119, 6, 0.22)",
+        "badge_bg": "#FEF3C7",
     },
 }
 
@@ -68,8 +73,8 @@ GLOBAL_STYLES_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,500&display=swap');
 
 :root {
-    --bg-sky-top: #B8E1F7;
-    --bg-sky-mid: #DDF0F6;
+    --bg-sky-top: #BAE6FD;
+    --bg-sky-mid: #E0F2FE;
     --bg-sky-bot: #F9F6E8;
     --text-primary: #164E33;
     --text-secondary: #3E5B4C;
@@ -86,7 +91,7 @@ GLOBAL_STYLES_CSS = """
 
 html, body, .stApp {
     background-color: var(--bg-sky-mid) !important;
-    background-image: linear-gradient(180deg, #B8E1F7 0%, #DDF0F6 24%, #F4F1E1 62%, #F9F6E8 100%) !important;
+    background-image: linear-gradient(180deg, #BAE6FD 0%, #E0F2FE 28%, #FEF9E7 70%, #F9F6E8 100%) !important;
     background-attachment: fixed !important;
     color: var(--text-primary) !important;
     font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
@@ -168,6 +173,37 @@ div[class*="st-key-nav_btn_"] button {
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-size: 0.95rem !important;
     padding: 10px 16px !important;
+}
+div[class*="st-key-nav_btn_"] button[kind="primary"],
+div[class*="st-key-nav_btn_"] [data-testid="stBaseButton-primary"] {
+    background: #164E33 !important;
+    color: #FFFFFF !important;
+    border: 2px solid #F59E0B !important;
+    box-shadow: 0 4px 0 #0D3321 !important;
+}
+div[class*="st-key-nav_btn_"] button[kind="primary"] *,
+div[class*="st-key-nav_btn_"] [data-testid="stBaseButton-primary"] * {
+    color: #FFFFFF !important;
+}
+
+/* Pemisah Jalan Aspal (Asphalt Road Divider ala econova board 3.pdf) */
+.eco-road-divider {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    background: #222629;
+    border-radius: 999px;
+    margin: 14px 0 18px 0;
+    box-shadow: 0 2px 0 rgba(13, 51, 33, 0.25);
+}
+.eco-road-divider::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: 2px dashed rgba(255, 255, 255, 0.85);
 }
 
 /* Tactile Board-Game Card Panels (Solid & Berbobot, Zero Floating Blur) */
@@ -298,7 +334,7 @@ div[class*="st-key-panel_"]:hover,
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%) !important;
+    background: #164E33 !important;
     color: #FFFFFF !important;
     font-family: 'Fredoka', 'Outfit', sans-serif !important;
     font-weight: 800 !important;
@@ -307,7 +343,7 @@ div[class*="st-key-panel_"]:hover,
     text-transform: uppercase !important;
     padding: 7px 22px !important;
     border-radius: 999px !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.28) !important;
+    border: 2px solid #F59E0B !important;
     box-shadow: 0 4px 0 #0D3321, 0 8px 16px rgba(13, 51, 33, 0.16) !important;
 }
 .eco-ribbon-header * {
@@ -352,9 +388,9 @@ div[data-testid="stTabs"] button[data-baseweb="tab"] {
 }
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"],
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-    background: linear-gradient(180deg, #1E6B47 0%, #144A31 100%) !important;
-    border-color: #144A31 !important;
-    border-bottom: 3.5px solid #0D3321 !important;
+    background: #164E33 !important;
+    border: 2px solid #F59E0B !important;
+    border-bottom: 3.5px solid #F59E0B !important;
 }
 div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
     color: #FFFFFF !important;
@@ -363,13 +399,13 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
 
 /* Top HUD Bar & Bottom Footer Lock */
 .eco-top-hud {
-    background: #164E33;
+    background: linear-gradient(90deg, #0369A1 0%, #0284C7 55%, #0D9488 100%);
     color: #FFFDF7;
-    border: 2px solid #0D3321;
+    border: 2px solid #075985;
     border-radius: 14px;
     padding: 9px 16px;
     margin-bottom: 12px;
-    box-shadow: 0 4px 0 #0D3321;
+    box-shadow: 0 4px 0 #075985;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -400,6 +436,38 @@ div[data-testid="stTabs"] [role="tab"][aria-selected="true"] * {
     font-size: 0.78rem;
     padding: 4px 12px;
     border-radius: 999px;
+}
+.eco-hud-crisis-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #FFE4E6;
+    border: 1.5px solid #FDA4AF;
+    color: #9F1239 !important;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+.eco-hud-crisis-alert * {
+    color: #9F1239 !important;
+}
+.eco-hud-crisis-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #FFFFFF !important;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+.eco-hud-crisis-ok * {
+    color: #FFFFFF !important;
 }
 .eco-footer-bar {
     background: #164E33;
@@ -841,7 +909,19 @@ div[class*="st-key-wrap_coin_sec"] div[data-testid="stNumberInputContainer"] inp
     -webkit-text-fill-color: #92400E !important;
 }
 
-/* Multiselect Tags per Kategori (Pastel Pill Kontras Tinggi) */
+/* Multiselect Tags per Kategori (Pastel Pill Kontras Tinggi + Anti-Clip Kotak Pilihan) */
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 6px 8px 10px 8px !important;
+    min-height: 40px !important;
+}
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div > div {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
 span[data-baseweb="tag"],
 [data-baseweb="tag"] {
     background-color: #DCFCE7 !important;
@@ -850,34 +930,41 @@ span[data-baseweb="tag"],
     border-radius: 8px !important;
     font-weight: 700 !important;
 }
-div[class*="st-key-wrap_proj_sec"] span[data-baseweb="tag"],
-div[class*="st-key-wrap_proj_sec"] [data-baseweb="tag"] {
+div[data-testid="stExpander"] div[class*="st-key-wrap_proj_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+div[data-testid="stExpander"] div[class*="st-key-wrap_proj_"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_proj_"] span[data-baseweb="tag"] {
     background-color: #DCFCE7 !important;
     border: 1.5px solid #22C55E !important;
     color: #14532D !important;
 }
-div[class*="st-key-wrap_tech_sec"] span[data-baseweb="tag"],
-div[class*="st-key-wrap_tech_sec"] [data-baseweb="tag"] {
+div[data-testid="stExpander"] div[class*="st-key-wrap_tech_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+div[data-testid="stExpander"] div[class*="st-key-wrap_tech_"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_tech_"] span[data-baseweb="tag"] {
     background-color: #E0F2FE !important;
     border: 1.5px solid #0284C7 !important;
     color: #075985 !important;
 }
-div[class*="st-key-wrap_skill_sec"] span[data-baseweb="tag"],
-div[class*="st-key-wrap_skill_sec"] [data-baseweb="tag"] {
+div[data-testid="stExpander"] div[class*="st-key-wrap_skill_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+div[data-testid="stExpander"] div[class*="st-key-wrap_skill_"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_skill_"] span[data-baseweb="tag"] {
     background-color: #FEF3C7 !important;
     border: 1.5px solid #F59E0B !important;
     color: #92400E !important;
 }
-div[class*="st-key-wrap_prob_sec"] span[data-baseweb="tag"],
-div[class*="st-key-wrap_prob_sec"] [data-baseweb="tag"] {
+div[data-testid="stExpander"] div[class*="st-key-wrap_prob_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+div[data-testid="stExpander"] div[class*="st-key-wrap_prob_"] span[data-baseweb="tag"],
+div[class*="st-key-wrap_prob_"] span[data-baseweb="tag"] {
     background-color: #FFE4E6 !important;
     border: 1.5px solid #F43F5E !important;
     color: #9F1239 !important;
 }
-span[data-baseweb="tag"] span,
-span[data-baseweb="tag"] svg,
-[data-baseweb="tag"] span,
-[data-baseweb="tag"] svg {
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] *,
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] span,
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] svg,
+div[data-testid="stExpander"] span[data-baseweb="tag"] span,
+div[data-testid="stExpander"] span[data-baseweb="tag"] svg,
+span[data-baseweb="tag"] *,
+[data-baseweb="tag"] * {
     color: inherit !important;
     fill: currentColor !important;
 }
@@ -1076,6 +1163,90 @@ div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] {
 .chat-bubble-user *:not(.chat-sender-tag):not(.chat-sender-tag *) { color: #FFFFFF !important; }
 .chat-bubble-user .chat-sender-tag,
 .chat-bubble-user .chat-sender-tag * { color: #DCFCE7 !important; }
+
+/* Peta Mini Interaktif 3x3 (Asphalt Grid ala econova board 3.pdf) */
+div[class*="st-key-panel_mini_board_grid"] {
+    background: #222629 !important;
+    border: 3px solid #0284C7 !important;
+    border-radius: 16px !important;
+    padding: 10px 10px !important;
+    box-shadow: 0 5px 0 #075985 !important;
+    margin-bottom: 10px !important;
+}
+div[class*="st-key-panel_mini_board_grid"]:hover {
+    border-color: #0369A1 !important;
+    box-shadow: 0 5px 0 #075985 !important;
+}
+div[class*="st-key-panel_mini_board_grid"] div[data-testid="stHorizontalBlock"] {
+    gap: 8px !important;
+    background-image:
+        linear-gradient(to bottom, rgba(255,255,255,0.85) 50%, transparent 50%),
+        linear-gradient(to bottom, rgba(255,255,255,0.85) 50%, transparent 50%);
+    background-size: 2px 10px, 2px 10px;
+    background-repeat: repeat-y, repeat-y;
+    background-position: 33.33% 0, 66.66% 0;
+}
+.eco-mini-road-h {
+    position: relative;
+    width: 100%;
+    height: 7px;
+    background: #222629;
+    margin: 4px 0;
+}
+.eco-mini-road-h::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: 2px dashed rgba(255, 255, 255, 0.85);
+}
+div[class*="st-key-board_tile_"] {
+    background: #FFFDF7 !important;
+    border: 2px solid #94B8A4 !important;
+    border-radius: 11px !important;
+    padding: 6px 6px 5px 6px !important;
+    box-shadow: 0 2px 0 rgba(13, 51, 33, 0.25) !important;
+}
+div[class*="st-key-board_tile_"] button {
+    font-family: 'Outfit', sans-serif !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    padding: 3px 6px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
+}
+
+/* Rekomendasi Taktis (Smart Strategy Advisor) & Special City Awards */
+.eco-strat-box {
+    background: linear-gradient(135deg, #F0FDF4 0%, #FFFDF7 100%);
+    border: 1.5px solid #86EFAC;
+    border-left: 4px solid #16A34A;
+    border-radius: 13px;
+    padding: 8px 10px;
+    margin-top: 10px;
+}
+.eco-strat-item {
+    background: #FFFFFF;
+    border: 1px solid #CFE2D4;
+    border-radius: 10px;
+    padding: 6px 9px;
+    margin-bottom: 5px;
+}
+.eco-award-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Fredoka', 'Outfit', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 800;
+    padding: 4px 11px;
+    border-radius: 999px;
+    border: 1.5px solid;
+    margin-top: 6px;
+    box-shadow: 0 2px 0 rgba(22, 78, 51, 0.12);
+}
 </style>
 """
 
@@ -1087,7 +1258,7 @@ def render_html(html_str: str) -> None:
 
 
 def inject_global_styles() -> None:
-    """Menyuntikkan CSS global EcoNova Official Poster serta latar ilustrasi web Solarpunk."""
+    """Menyuntikkan CSS global EcoNova Official Poster serta latar ilustrasi panorama Solarpunk."""
     render_html(GLOBAL_STYLES_CSS)
     bg_uri = get_econova_bg_uri()
     if bg_uri:
@@ -1095,12 +1266,12 @@ def inject_global_styles() -> None:
             f"""
             <style>
             html, body, .stApp {{
-                background-color: #DDF0F6 !important;
+                background-color: #E0F2FE !important;
                 background-image:
-                    linear-gradient(180deg, rgba(240, 248, 252, 0.16) 0%, rgba(249, 246, 232, 0.28) 56%, rgba(235, 246, 238, 0.22) 100%),
+                    linear-gradient(180deg, rgba(186, 230, 253, 0.70) 0%, rgba(224, 242, 254, 0.72) 28%, rgba(254, 249, 231, 0.78) 70%, rgba(249, 246, 232, 0.84) 100%),
                     url("{bg_uri}") !important;
                 background-size: cover !important;
-                background-position: center bottom !important;
+                background-position: center center !important;
                 background-repeat: no-repeat !important;
                 background-attachment: fixed !important;
             }}

@@ -14,15 +14,17 @@ from typing import Any, Dict, List, Optional
 import streamlit as st
 
 for _dep_name, _dep_attrs in (
-    ("cards_data", ("PROBLEM_SOLUTION_RULES", "get_resolvable_problems_for_tech", "get_resolvable_problems_for_skill")),
+    ("cards_data", ("PROBLEM_SOLUTION_RULES", "get_resolvable_problems_for_tech", "get_resolvable_problems_for_skill", "recommend_cards_for_player", "assign_special_city_awards")),
     ("styles", ("FACTION_THEMES", "inject_faction_turn_styles", "render_html")),
-    ("state_manager", ("TAB_OPTIONS", "callback_switch_tab", "callback_lock_and_open_audit")),
+    ("state_manager", ("TAB_OPTIONS", "callback_switch_tab", "callback_lock_and_open_audit", "export_session_json", "callback_select_board_tile")),
 ):
     _dep_mod = importlib.import_module(_dep_name)
     if any(not hasattr(_dep_mod, _a) for _a in _dep_attrs):
         importlib.reload(_dep_mod)
 
 from cards_data import (
+    CATEGORY_COLOR_THEMES,
+    DISTRICT_META,
     EVENT_BY_ID,
     EVENT_BY_ROUND,
     EVENT_CARDS,
@@ -30,6 +32,7 @@ from cards_data import (
     PROBLEM_BY_ID,
     PROJECT_BY_ID,
     SKILL_BY_CODE,
+    assign_special_city_awards,
     calculate_coin_bonus,
     compute_player_score,
     get_card_clean_name,
@@ -37,6 +40,7 @@ from cards_data import (
     get_resolvable_problems_for_skill,
     get_resolvable_problems_for_tech,
     rank_players_audit,
+    recommend_cards_for_player,
 )
 from llm_service import (
     generate_llm_enhanced_narrative,
@@ -49,11 +53,16 @@ from state_manager import (
     callback_activate_tech,
     callback_apply_quick_card,
     callback_event_picker_changed,
+    callback_import_uploaded_session,
+    callback_load_demo_simulation,
     callback_lock_and_open_audit,
     callback_next_round,
+    callback_pick_recommended_card,
     callback_prev_round,
+    callback_reset_district_filter,
     callback_reset_game,
     callback_reset_manual_points,
+    callback_select_board_tile,
     callback_set_active_player,
     callback_switch_tab,
     callback_sync_city,
@@ -72,6 +81,7 @@ from state_manager import (
     callback_use_s4,
     callback_use_s5,
     callback_use_skill_solve_problem,
+    export_session_json,
 )
 from styles import FACTION_THEMES, inject_faction_turn_styles, render_html
 
@@ -264,20 +274,271 @@ def icon_img_html(filename: str, size: int = 18, alt: str = "", mr: int = 4) -> 
     )
 
 
+def _format_nar_html(md_text: str) -> str:
+    """Mengonversi teks narasi markdown menjadi HTML aman yang rapi untuk cetak sertifikat."""
+    safe = html.escape(str(md_text or "-"))
+    safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe)
+    safe = safe.replace("\n", "<br/>")
+    return safe
+
+
+def build_certificate_download_html(
+    p_res: Dict[str, Any],
+    nar: Dict[str, Any],
+    cert_grade: Dict[str, str],
+    logo_uri: str = "",
+    seal_uri: str = "",
+) -> str:
+    """Menghasilkan dokumen HTML mandiri bergaya Diploma Resmi EcoNova 2075 siap cetak."""
+    arch = p_res["archetype"]
+    tiers = arch.get("tiers", {})
+    city_safe = html.escape(str(p_res.get("city_name", "Kota EcoNova")))
+    mayor_safe = html.escape(str(p_res.get("player_name", "Wali Kota")))
+    arch_name = html.escape(str(arch.get("name", "-")))
+    arch_tagline = html.escape(str(arch.get("tagline", "")))
+    arch_reason = html.escape(str(arch.get("reason", "")))
+    arch_color = html.escape(str(arch.get("color", "#164E33")))
+    grade_val = html.escape(str(cert_grade.get("grade", "-")))
+    grade_lbl = html.escape(str(cert_grade.get("label", "")))
+
+    logo_block = (
+        f'<div style="background:#164E33;padding:6px 14px;border-radius:10px;display:inline-flex;align-items:center;">'
+        f'<img src="{logo_uri}" alt="EcoNova Logo" style="height:30px;width:auto;display:block;" /></div>'
+        if logo_uri
+        else '<span style="background:#164E33;color:#FFFDF7;padding:6px 14px;border-radius:10px;font-weight:900;font-size:18px;">EcoNova</span>'
+    )
+    seal_block = (
+        f'<img src="{seal_uri}" alt="EcoNova Certified 2075 Seal" style="width:80px;height:80px;object-fit:contain;" />'
+        if seal_uri
+        else ""
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sertifikat Akreditasi EcoNova 2075 - {city_safe}</title>
+<style>
+  @page {{ size: A4 landscape; margin: 14mm; }}
+  * {{ box-sizing: border-box; }}
+  body {{
+    margin: 0;
+    padding: 24px;
+    background: #F4F1E1;
+    color: #164E33;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', Arial, sans-serif;
+  }}
+  .diploma {{
+    max-width: 980px;
+    margin: 0 auto;
+    background: #FFFDF7;
+    border: 4px solid #164E33;
+    outline: 2.5px dashed #D97706;
+    outline-offset: -10px;
+    border-radius: 20px;
+    padding: 28px 34px;
+    box-shadow: 0 10px 28px rgba(22, 78, 51, 0.14);
+  }}
+  .top-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #D1E7DA;
+    padding-bottom: 16px;
+  }}
+  .ribbon {{
+    display: inline-block;
+    margin-left: 10px;
+    background: #164E33;
+    color: #FFFDF7;
+    border: 2px solid #F59E0B;
+    border-radius: 999px;
+    padding: 5px 15px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }}
+  .score-box {{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #FFFFFF;
+    border: 2px solid {arch_color};
+    border-radius: 16px;
+    padding: 12px 18px;
+  }}
+  .grade-circle {{
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #164E33;
+    color: #FFFDF7;
+    border: 3px solid #F59E0B;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    line-height: 1.05;
+  }}
+  table.pillars {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 14px 0;
+    font-size: 13.5px;
+  }}
+  table.pillars th, table.pillars td {{
+    border: 1.5px solid #CFE2D4;
+    padding: 9px 12px;
+    text-align: center;
+  }}
+  table.pillars th {{
+    background: #164E33;
+    color: #FFFDF7;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }}
+  .reason-box {{
+    background: #F4FBF6;
+    border: 1.5px solid #B7D5C4;
+    border-left: 5px solid #164E33;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }}
+  .nar-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }}
+  .nar-card {{
+    background: #FFFFFF;
+    border: 1.5px solid #CFE2D4;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }}
+  .nar-title {{
+    font-weight: 800;
+    font-size: 13.5px;
+    margin-bottom: 6px;
+    color: #164E33;
+  }}
+  @media print {{
+    body {{ background: #FFFFFF; padding: 0; }}
+    .diploma {{ box-shadow: none; }}
+  }}
+</style>
+</head>
+<body>
+  <div class="diploma">
+    <div class="top-row">
+      <div>
+        <div>{logo_block}<span class="ribbon">AKREDITASI RESMI TATA KOTA 2075 · PERINGKAT #{int(p_res.get('rank', 1))}</span></div>
+        <h1 style="margin:10px 0 4px 0;font-size:32px;color:#164E33;">{city_safe}</h1>
+        <div style="font-size:15px;color:#3E5B4C;font-weight:600;">
+          Wali Kota: <strong style="color:#164E33;">{mayor_safe}</strong> · Archetype: <strong style="color:{arch_color};">{arch_name}</strong>
+        </div>
+        <div style="font-size:13px;color:#476656;font-style:italic;margin-top:4px;">&ldquo;{arch_tagline}&rdquo;</div>
+      </div>
+      <div class="score-box">
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:800;color:#3E5B4C;text-transform:uppercase;">Skor Rata-Rata</div>
+          <div style="font-size:30px;font-weight:900;color:{arch_color};">{float(p_res.get('avg_score', 0)):.2f}</div>
+          <div style="font-size:12px;font-weight:700;color:#164E33;">Kas Akhir: {int(p_res.get('coins', 0))} Koin</div>
+        </div>
+        <div class="grade-circle" title="{grade_lbl}">
+          <span style="font-size:9px;letter-spacing:0.06em;">GRADE</span>
+          <span style="font-size:20px;">{grade_val}</span>
+        </div>
+        {seal_block}
+      </div>
+    </div>
+
+    <table class="pillars">
+      <thead>
+        <tr>
+          <th>Pilar Mobility (M)</th>
+          <th>Pilar Energy (E)</th>
+          <th>Pilar Environment (ENV)</th>
+          <th>Pilar Quality of Life (QoL)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>{int(p_res.get('M', 0))}</strong> / 100<br/><small>{html.escape(str(tiers.get('Mobility', {}).get('tier', '-')))}</small></td>
+          <td><strong>{int(p_res.get('E', 0))}</strong> / 100<br/><small>{html.escape(str(tiers.get('Energy', {}).get('tier', '-')))}</small></td>
+          <td><strong>{int(p_res.get('ENV', 0))}</strong> / 100<br/><small>{html.escape(str(tiers.get('Environment', {}).get('tier', '-')))}</small></td>
+          <td><strong>{int(p_res.get('QoL', 0))}</strong> / 100<br/><small>{html.escape(str(tiers.get('Quality of Life', {}).get('tier', '-')))}</small></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="reason-box">
+      <strong>Dasar Klasifikasi AI Auditor:</strong> {arch_reason}
+    </div>
+
+    <div class="nar-grid">
+      <div class="nar-card">
+        <div class="nar-title" style="color:#15803D;">Kekuatan Infrastruktur Kota</div>
+        <div>{_format_nar_html(nar.get('strengths', ''))}</div>
+      </div>
+      <div class="nar-card">
+        <div class="nar-title" style="color:#0284C7;">Visi Tata Kota Masa Depan (2075)</div>
+        <div>{_format_nar_html(nar.get('future_simulation', ''))}</div>
+      </div>
+      <div class="nar-card">
+        <div class="nar-title" style="color:#D97706;">Evaluasi Krisis &amp; Mitigasi Risiko</div>
+        <div>{_format_nar_html(nar.get('challenges', ''))}</div>
+      </div>
+      <div class="nar-card">
+        <div class="nar-title" style="color:#164E33;">Rekomendasi Tata Ruang Terpadu</div>
+        <div>{_format_nar_html(nar.get('recommendations', ''))}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 def render_hero_banner() -> None:
     """Merender Top HUD Bar pengunci atas serta Hero Banner EcoNova Board-Mat."""
     logo_uri = get_econova_logo_uri()
     curr_round = int(st.session_state.get("current_round", 1))
     act_pid = int(st.session_state.get("active_player_id", 1))
-    act_pl = st.session_state.get("players", {}).get(act_pid, {"city": f"Kota {act_pid}"})
+    players_map = st.session_state.get("players", {})
+    act_pl = players_map.get(act_pid, {"city": f"Kota {act_pid}"})
     ev_id = st.session_state.get("selected_event_id")
     ev_text = EVENT_BY_ID[ev_id]["name"] if ev_id and ev_id in EVENT_BY_ID else "Event Standby"
     action_count = len(st.session_state.get("action_history", []))
+    total_krisis = sum(len(pl.get("problems", [])) for pl in players_map.values())
+    if total_krisis > 0:
+        crisis_pill_html = (
+            f'<span class="eco-hud-crisis-alert" style="background:#FFE4E6;border:1.5px solid #FDA4AF;color:#9F1239;font-weight:800;">'
+            f'{icon_img_html("icon_card_problem.png", 15, "Krisis", 0)}<span>{total_krisis} Krisis Aktif</span></span>'
+        )
+    else:
+        crisis_pill_html = (
+            f'<span class="eco-hud-crisis-ok" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.35);color:#FFFFFF;font-weight:700;">'
+            f'{icon_img_html("icon_card_problem.png", 15, "Krisis", 0)}<span>0 Krisis Aktif</span></span>'
+        )
 
     hud_logo_html = (
-        f'<img src="{logo_uri}" alt="EcoNova" style="height:28px;width:auto;display:block;" />'
+        f'<div class="eco-logo-plaque" style="background:#164E33;padding:4px 12px;border-radius:10px;border:1.5px solid #0D3321;display:inline-flex;align-items:center;">'
+        f'<img src="{logo_uri}" alt="EcoNova" style="height:26px;width:auto;display:block;" /></div>'
         if logo_uri
-        else '<span style="font-family:\'Fredoka\',sans-serif;font-weight:900;font-size:1.1rem;color:#FFFDF7;">EcoNova</span>'
+        else '<span class="eco-logo-plaque" style="background:#164E33;padding:4px 12px;border-radius:10px;border:1.5px solid #0D3321;font-family:\'Fredoka\',sans-serif;font-weight:900;font-size:1.05rem;color:#FFFDF7;">EcoNova</span>'
     )
     render_html(
         f"""
@@ -292,6 +553,7 @@ def render_hero_banner() -> None:
             <span class="eco-hud-round-pill">RONDE {curr_round} / 13</span>
             <span class="eco-hud-status-pill">Giliran: P{act_pid} · {html.escape(str(act_pl.get('city', f'Kota {act_pid}')))}</span>
             <span class="eco-hud-status-pill">Event: {html.escape(ev_text)}</span>
+            {crisis_pill_html}
             <span class="eco-hud-status-pill">{action_count} Log Aksi</span>
           </div>
         </div>
@@ -301,7 +563,7 @@ def render_hero_banner() -> None:
     if logo_uri:
         left_brand_html = f"""
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <div class="eco-logo-plaque" style="background:linear-gradient(180deg,#1E6B47 0%,#144A31 100%);padding:8px 16px;border-radius:14px;border:2px solid #0D3321;box-shadow:0 3px 0 #0D3321;">
+          <div class="eco-logo-plaque" style="background:#164E33;padding:8px 16px;border-radius:14px;border:2px solid #0D3321;box-shadow:0 3px 0 #0D3321;">
             <img src="{logo_uri}" alt="EcoNova Logo" style="height:36px;width:auto;display:block;" />
           </div>
           <div class="eco-hero-subtitle">
@@ -342,11 +604,17 @@ def render_footer_bar() -> None:
     """Merender footer tipis pengunci bagian bawah alas papan permainan."""
     curr_round = int(st.session_state.get("current_round", 1))
     active_tab = st.session_state.get("active_tab", "Tab 1: Live Tracker")
+    tab_display_map = {
+        "Tab 1: Live Tracker": "Tab 1: Live Tracker",
+        "Tab 2: Final Audit": "Tab 2: Final Audit",
+        "Tab 3: AI Game Master": "Tab 3: EcoBot Game Master",
+    }
+    footer_tab_label = tab_display_map.get(active_tab, active_tab)
     render_html(
         f"""
         <div class="eco-footer-bar">
           <span>EcoNova: Sustainable City Planner &amp; AI Auditor · Rulebook v1.0</span>
-          <span style="color:#FEF08A;">{html.escape(active_tab)} · Ronde {curr_round} / 13</span>
+          <span style="color:#FEF08A;">{html.escape(footer_tab_label)} · Ronde {curr_round} / 13</span>
         </div>
         """
     )
@@ -392,34 +660,6 @@ def render_tab_tracker() -> None:
         st.session_state.active_player_id = 1
 
     inject_faction_turn_styles(active_player_id)
-
-    curr_round_top = int(st.session_state.get("current_round", 1))
-    top_ev_id = st.session_state.get("selected_event_id")
-    if top_ev_id and top_ev_id in EVENT_BY_ID:
-        top_ev = EVENT_BY_ID[top_ev_id]
-        ev_banner_txt = f"{top_ev['name']} ({top_ev.get('effect_summary', top_ev.get('effect_str', ''))})"
-    else:
-        ev_banner_txt = "Belum ada Event aktif — skor pemain murni"
-    total_active_probs = sum(len(st.session_state.players[pid]["problems"]) for pid in range(1, 5))
-    prob_banner_txt = f"{total_active_probs} Krisis Aktif di Meja" if total_active_probs > 0 else "0 Krisis Aktif"
-
-    render_html(
-        f"""
-        <div class="eco-round-banner">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span class="eco-hud-round-pill">RONDE {curr_round_top} / 13</span>
-            <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.84rem;font-weight:700;">
-              {icon_img_html('icon_card_event.png', 18, 'Event', 0)}<span>Event: <b>{html.escape(ev_banner_txt)}</b></span>
-            </span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="eco-hud-status-pill" style="display:inline-flex;align-items:center;gap:5px;">
-              {icon_img_html('icon_card_problem.png', 15, 'Krisis', 0)}<span>{prob_banner_txt}</span>
-            </span>
-          </div>
-        </div>
-        """
-    )
 
     render_html(
         """
@@ -497,7 +737,7 @@ def render_tab_tracker() -> None:
             if current_sel not in event_picker_options:
                 current_sel = None
                 st.session_state.selected_event_id = None
-            if st.session_state.get("widget_event_picker") not in event_picker_options:
+            if st.session_state.get("widget_event_picker") != current_sel:
                 st.session_state.widget_event_picker = current_sel
 
             st.selectbox(
@@ -505,6 +745,7 @@ def render_tab_tracker() -> None:
                 options=event_picker_options,
                 format_func=format_event_selector,
                 key="widget_event_picker",
+                placeholder="-- Pilih Event Card --",
                 on_change=callback_event_picker_changed,
                 help="Pilih Event Card yang sedang terbuka di papan fisik ronde ini. Kartu ronde lalu otomatis masuk Discard.",
             )
@@ -566,12 +807,50 @@ def render_tab_tracker() -> None:
                 help="Aktifkan tombol/input penambahan nilai poin manual untuk setiap pemain di dashboard.",
             )
             st.button(
+                "🎭 Isi Simulasi Demo",
+                width="stretch",
+                key="btn_load_demo_sim",
+                on_click=callback_load_demo_simulation,
+                help="Isi cepat skenario 4 kota realistis di Ronde 11 (Alya, Bima, Citra, Dimas) untuk demo & presentasi juri.",
+            )
+            st.button(
                 "Reset Permainan (Baseline 50)",
                 width="stretch",
                 key="btn_reset_empty_top",
                 on_click=callback_reset_game,
                 help="Reset semua nilai pemain ke awal (Skor 50, 5 Koin, tanpa kartu).",
             )
+            with st.expander("💾 Simpan / Muat Sesi (.json)", expanded=False):
+                st.download_button(
+                    label="⬇️ Unduh Sesi (.json)",
+                    data=export_session_json().encode("utf-8"),
+                    file_name=f"econova_session_R{curr_round}.json",
+                    mime="application/json",
+                    key="btn_export_session_json",
+                    width="stretch",
+                )
+                uploaded_sess = st.file_uploader(
+                    "Pilih file sesi JSON:",
+                    type=["json"],
+                    key="uploader_session_json",
+                    label_visibility="collapsed",
+                )
+                st.button(
+                    "📂 Muat Sesi",
+                    width="stretch",
+                    key="btn_import_session_json",
+                    disabled=(uploaded_sess is None),
+                    on_click=callback_import_uploaded_session,
+                    help="Pulihkan ronde, Event, pemain, dan riwayat skor dari file JSON.",
+                )
+                import_fb = st.session_state.get("session_import_feedback")
+                if import_fb:
+                    fb_ok, fb_msg = import_fb
+                    if fb_ok:
+                        st.success(fb_msg)
+                    else:
+                        st.error(fb_msg)
+                    st.session_state.session_import_feedback = None
 
         act_faction = FACTION_THEMES[active_player_id]
         act_pl = st.session_state.players[active_player_id]
@@ -594,7 +873,7 @@ def render_tab_tracker() -> None:
                 is_curr = (t_pid == active_player_id)
                 with t_col:
                     st.button(
-                        f"{'▶ ' if is_curr else ''}P{t_pid} · {t_pl['city'][:11]}",
+                        f"{'▶ ' if is_curr else ''}P{t_pid} · {t_pl['city'][:16]}",
                         key=f"btn_turn_p{t_pid}",
                         type="primary" if is_curr else "secondary",
                         width="stretch",
@@ -649,57 +928,316 @@ def render_tab_tracker() -> None:
                 "Problem": (problem_id_options, PROBLEM_BY_ID, format_problem_label, "icon_card_problem.png", act_pl_deck["problems"], "Catat Krisis ke Pemain"),
             }
             cat_opts, cat_dict, cat_fmt, cat_icon, owned_list, exec_btn_label = cat_meta_map[q_cat]
+            dist_filter = st.session_state.get("quick_district_filter")
+            if q_cat == "Project" and dist_filter in DISTRICT_META:
+                filtered_opts = [pid for pid in cat_opts if PROJECT_BY_ID[pid].get("district") == dist_filter]
+                if filtered_opts:
+                    cat_opts = filtered_opts
             if st.session_state.get("quick_card_picker") not in cat_opts:
                 st.session_state["quick_card_picker"] = cat_opts[0]
             with qc_c2:
+                picker_label = (
+                    f"Pilih Kartu ({dist_filter}):"
+                    if (q_cat == "Project" and dist_filter in DISTRICT_META)
+                    else "Pilih Kartu:"
+                )
                 q_cid = st.selectbox(
-                    "Pilih Kartu:",
+                    picker_label,
                     options=cat_opts,
                     format_func=cat_fmt,
                     key="quick_card_picker",
                 )
 
             preview_card = cat_dict.get(q_cid, {})
+            card_theme = get_card_color_theme(q_cid)
+            c_bg = card_theme.get("bg", "#FFFDF7")
+            c_border = card_theme.get("border", "#164E33")
+            c_text = card_theme.get("text", "#164E33")
             already_owned = q_cid in owned_list
             eff_sum = preview_card.get("effect_summary", preview_card.get("effect_str", "-"))
-            cost_val = int(preview_card.get("cost", 0))
+            base_cost = int(preview_card.get("cost", 0))
             dist_val = preview_card.get("district", q_cat)
+
+            # 1. Hitung harga efektif & diskon Event EV03 / EV05
+            discount_active = (
+                (active_event_id == "EV03" and q_cat == "Project" and dist_val == "Energy")
+                or (active_event_id == "EV05" and q_cat in ("Tech", "Skill"))
+            )
+            effective_cost = max(0, base_cost - 2) if discount_active else base_cost
+
+            # 2. Hitung koin efektif pemain target & validasi syarat Tech / koin
+            target_live_audit = compute_player_score(
+                player_name=act_pl_deck["name"],
+                city_name=act_pl_deck["city"],
+                project_ids=act_pl_deck["projects"],
+                tech_codes=act_pl_deck["techs"],
+                failed_problem_ids=act_pl_deck["problems"],
+                coins=act_pl_deck["coins"],
+                used_skill_codes=act_pl_deck["skills"],
+                include_events=False,
+                active_event_id=active_event_id,
+                skill_bonus=act_pl_deck["bonus_stats"],
+                active_tech_codes=act_pl_deck["active_techs_this_round"],
+                accumulated_event_delta=act_pl_deck["accumulated_event_delta"],
+                accumulated_event_coins=0,
+                is_immune=act_pl_deck.get("immune_this_round", False),
+                manual_delta=act_pl_deck.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+                accumulated_tech_stats=act_pl_deck.get("accumulated_tech_stats", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+            )
+            target_live_coins = int(target_live_audit.get("coins", act_pl_deck["coins"]))
+
+            missing_techs = (
+                [t for t in preview_card.get("tech_list", []) if t not in act_pl_deck.get("techs", [])]
+                if q_cat == "Project"
+                else []
+            )
+            insufficient_coins = (q_cat in ("Project", "Tech", "Skill")) and (target_live_coins < effective_cost)
+
             owned_badge = (
                 '<span style="background:#FEF3C7;color:#92400E;border:1px solid #F59E0B;border-radius:999px;padding:1px 8px;font-size:0.68rem;font-weight:800;">Sudah Dimiliki</span>'
                 if already_owned
                 else ""
             )
+            discount_pill = (
+                '<span style="background:#FEF3C7;color:#B45309;border:1px solid #F59E0B;border-radius:999px;padding:2px 8px;font-size:0.69rem;font-weight:800;">🏷️ Diskon Event -2 Koin Aktif</span>'
+                if discount_active
+                else ""
+            )
+            cost_html = (
+                f'Biaya Efektif: <s style="color:#64748B;">{base_cost}</s> <b style="color:#B45309;">{effective_cost} Koin</b>'
+                if discount_active
+                else f'Biaya Papan: <b>{effective_cost} Koin</b>'
+            )
+
+            warning_badges: List[str] = []
+            if missing_techs:
+                req_str = ", ".join(missing_techs)
+                warning_badges.append(
+                    f'<div style="background:#FEF3C7;color:#92400E;border:1.5px solid #F59E0B;border-radius:8px;padding:4px 8px;font-size:0.72rem;font-weight:800;">'
+                    f'⚠️ Syarat Tech belum terpenuhi: butuh [{html.escape(req_str)}]</div>'
+                )
+            if insufficient_coins:
+                warning_badges.append(
+                    f'<div style="background:#FFE4E6;color:#9F1239;border:1.5px solid #FDA4AF;border-radius:8px;padding:4px 8px;font-size:0.72rem;font-weight:800;">'
+                    f'🪙 Kas koin belum cukup (butuh {effective_cost} Koin, tersedia {target_live_coins} Koin)</div>'
+                )
+            warnings_html = (
+                f'<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">{"".join(warning_badges)}</div>'
+                if warning_badges
+                else ""
+            )
+
             render_html(
                 f"""
-                <div class="eco-card-preview">
+                <div class="eco-card-preview" style="background:{c_bg};border:2px solid {c_border};box-shadow:0 3px 0 {c_border};">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-                    <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Fredoka','Outfit',sans-serif;font-size:0.88rem;font-weight:800;color:#164E33;">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-family:'Fredoka','Outfit',sans-serif;font-size:0.88rem;font-weight:800;color:{c_text};">
                       {icon_img_html(cat_icon, 18, q_cat, 0)}<span>[{html.escape(str(q_cid))}] {html.escape(str(preview_card.get('name', q_cid)))}</span>
                     </span>
-                    <span style="display:inline-flex;align-items:center;gap:5px;">
+                    <span style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;">
                       {owned_badge}
-                      <span style="background:#DCFCE7;color:#14532D;border:1px solid #16A34A;border-radius:999px;padding:2px 8px;font-size:0.71rem;font-weight:800;">
+                      {discount_pill}
+                      <span style="background:#FFFDF7;color:{c_text};border:1.5px solid {c_border};border-radius:999px;padding:2px 8px;font-size:0.71rem;font-weight:800;">
                         {html.escape(str(eff_sum))}
                       </span>
                     </span>
                   </div>
-                  <div style="font-size:0.75rem;color:#3E5B4C;margin-top:4px;line-height:1.38;">
-                    <b>{html.escape(str(dist_val))}</b> · Biaya Papan: <b>{cost_val} Koin</b> — {html.escape(str(preview_card.get('description', '')))}
+                  <div style="font-size:0.75rem;color:#1E3A2B;margin-top:5px;line-height:1.38;">
+                    <span style="background:#FFFDF7;color:{c_text};border:1px solid {c_border};border-radius:6px;padding:1px 6px;font-weight:800;font-size:0.69rem;margin-right:4px;">{html.escape(str(dist_val))}</span>
+                    · {cost_html} — {html.escape(str(preview_card.get('description', '')))}
                   </div>
+                  {warnings_html}
                 </div>
                 """
             )
+            has_req_warning = bool(missing_techs or insufficient_coins)
+            btn_apply_label = (
+                f"Kartu {q_cid} Sudah Dimiliki P{active_player_id}"
+                if already_owned
+                else (
+                    f"{exec_btn_label} (P{active_player_id}) · Override Fasilitator"
+                    if has_req_warning
+                    else f"{exec_btn_label} (P{active_player_id})"
+                )
+            )
             st.button(
-                f"{exec_btn_label} (P{active_player_id})" if not already_owned else f"Kartu {q_cid} Sudah Dimiliki P{active_player_id}",
+                btn_apply_label,
                 type="primary",
                 width="stretch",
                 key="btn_apply_quick_card",
                 disabled=already_owned,
                 on_click=callback_apply_quick_card,
                 args=(active_player_id, q_cat, q_cid),
+                help="Tombol tetap aktif sebagai override manual fasilitator meja meskipun syarat Tech atau koin belum mencukupi.",
             )
 
+            # 3. Rekomendasi Kartu Pintar (Smart Strategy Advisor)
+            strat_recs = recommend_cards_for_player(act_pl_deck, active_event_id=active_event_id)
+            render_html(
+                """
+                <div class="eco-strat-box">
+                  <div style="font-family:'Fredoka','Outfit',sans-serif;font-size:0.84rem;font-weight:800;color:#164E33;margin-bottom:2px;">
+                    💡 Rekomendasi Taktis untuk Pemain Aktif
+                  </div>
+                  <div style="font-size:0.7rem;color:#3E5B4C;font-weight:600;">
+                    Saran otomatis sesuai syarat Tech &amp; koin efektif untuk menutup pilar terlemah.
+                  </div>
+                </div>
+                """
+            )
+            if strat_recs:
+                for rec_idx, rec in enumerate(strat_recs):
+                    rec_th = get_card_color_theme(rec["id"])
+                    r_col_txt, r_col_btn = st.columns([7.8, 2.2], gap="small")
+                    with r_col_txt:
+                        disc_tag = " (Diskon Event)" if rec.get("discount_applied") else ""
+                        render_html(
+                            f"""
+                            <div class="eco-strat-item" style="border-left:4px solid {rec_th['border']};">
+                              <div style="font-size:0.75rem;font-weight:800;color:#164E33;">
+                                [{html.escape(rec['id'])}] {html.escape(rec['name'])}
+                                <span style="color:{rec_th['text']};font-weight:800;">· {html.escape(rec['category'])} · 🪙{rec['effective_cost']}{disc_tag}</span>
+                              </div>
+                              <div style="font-size:0.7rem;color:#3E5B4C;margin-top:2px;line-height:1.3;">
+                                {html.escape(rec['reason'])}
+                              </div>
+                            </div>
+                            """
+                        )
+                    with r_col_btn:
+                        st.button(
+                            "Pilih",
+                            key=f"btn_pick_rec_{rec_idx}_{rec['id']}",
+                            width="stretch",
+                            on_click=callback_pick_recommended_card,
+                            args=(rec["id"], rec["category"]),
+                            help=f"Muat {rec['id']} ke pratinjau Meja Aksi Kartu Cepat.",
+                        )
+            else:
+                st.caption("Belum ada proyek/tech terjangkau dengan kas koin dan syarat Tech saat ini.")
+
         with deck_col2:
+            # 1. Peta Mini Interaktif 3x3 (District Board Navigator)
+            act_dist_counts = target_live_audit.get("district_counts", {})
+            mb_hdr1, mb_hdr2 = st.columns([6.6, 3.4], gap="small")
+            with mb_hdr1:
+                filter_badge = (
+                    f" · Filter: {dist_filter}"
+                    if dist_filter in DISTRICT_META
+                    else (" · Mode: Tech/Skill" if q_cat in ("Tech", "Skill") else "")
+                )
+                render_html(
+                    f"""
+                    <div style="display:flex;align-items:center;gap:6px;padding-top:4px;">
+                      {icon_img_html('icon_city.png', 18, 'Peta Distrik', 0)}
+                      <span style="font-family:'Fredoka','Outfit',sans-serif;font-size:0.9rem;font-weight:800;color:#164E33;">
+                        Peta Mini Distrik 3×3{html.escape(filter_badge)}
+                      </span>
+                    </div>
+                    """
+                )
+            with mb_hdr2:
+                st.button(
+                    "🔄 Semua Distrik",
+                    key="btn_reset_district_filter",
+                    width="stretch",
+                    disabled=(dist_filter is None),
+                    on_click=callback_reset_district_filter,
+                    help="Tampilkan kembali seluruh kartu Project tanpa filter distrik.",
+                )
+
+            MINI_BOARD_LAYOUT = [
+                ["Residential", "Public Services", "Green Park"],
+                ["Transportation", "City Center", "Commercial"],
+                ["Industrial", "Energy", "Water"],
+            ]
+            TILE_DISPLAY_META = {
+                "Residential": ("Residential", "icon_city_identity.png"),
+                "Public Services": ("Public Serv.", "badge_pillar_qol.png"),
+                "Green Park": ("Green Park", "badge_pillar_env.png"),
+                "Transportation": ("Transport", "badge_pillar_m.png"),
+                "City Center": ("City Center", "icon_card_tech.png"),
+                "Commercial": ("Commercial", "icon_coin.png"),
+                "Industrial": ("Industrial", "icon_tools.png"),
+                "Energy": ("Energy", "badge_pillar_e.png"),
+                "Water": ("Water", "icon_city.png"),
+            }
+            tile_css_rules: List[str] = []
+            for row_tiles in MINI_BOARD_LAYOUT:
+                for t_name in row_tiles:
+                    t_slug = t_name.lower().replace(" ", "_")
+                    if t_name == "City Center":
+                        is_selected_tile = (q_cat == "Tech" and dist_filter is None)
+                        t_bg = "#FEF3C7" if is_selected_tile else "#F0FDF4"
+                        t_bdr = "#164E33"
+                    else:
+                        cnt = int(act_dist_counts.get(t_name, 0))
+                        is_selected_tile = (dist_filter == t_name)
+                        dm = DISTRICT_META.get(t_name, {"color": "#164E33", "badge_bg": "#FFFDF7"})
+                        if is_selected_tile or cnt > 0:
+                            t_bg = dm["badge_bg"]
+                            t_bdr = dm["color"]
+                        else:
+                            t_bg = "#FFFDF7"
+                            t_bdr = "#CBD5E1"
+                    if is_selected_tile:
+                        tile_css_rules.append(
+                            f"""
+                            div[class*="st-key-board_tile_{t_slug}"] {{
+                                background: {t_bg} !important;
+                                border: 2.5px solid #F59E0B !important;
+                                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.32) !important;
+                                transform: translateY(-1px) !important;
+                            }}
+                            """
+                        )
+                    else:
+                        tile_css_rules.append(
+                            f"""
+                            div[class*="st-key-board_tile_{t_slug}"] {{
+                                background: {t_bg} !important;
+                                border: 2px solid {t_bdr} !important;
+                            }}
+                            """
+                        )
+            render_html("<style>\n" + "\n".join(tile_css_rules) + "\n</style>")
+
+            with st.container(border=False, key="panel_mini_board_grid"):
+                for r_board_idx, row_tiles in enumerate(MINI_BOARD_LAYOUT):
+                    b_cols = st.columns(3, gap="small")
+                    for c_board_idx, t_name in enumerate(row_tiles):
+                        t_slug = t_name.lower().replace(" ", "_")
+                        short_lbl, t_icon = TILE_DISPLAY_META[t_name]
+                        with b_cols[c_board_idx]:
+                            with st.container(key=f"board_tile_{t_slug}"):
+                                if t_name == "City Center":
+                                    sub_txt = f"{len(act_pl_deck['techs'])}T · {len(act_pl_deck['skills'])}S"
+                                    tile_help = "City Center: klik untuk beralih ke kartu Tech & Skill (T1–T5 / S1–S5)."
+                                    t_accent = "#164E33"
+                                else:
+                                    cnt = int(act_dist_counts.get(t_name, 0))
+                                    sub_txt = f"{cnt} Proyek"
+                                    tile_help = f"Distrik {t_name}: klik untuk menyaring kartu Project distrik ini."
+                                    t_accent = DISTRICT_META[t_name]["color"]
+                                render_html(
+                                    f"""
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:3px;">
+                                      {icon_img_html(t_icon, 14, t_name, 0)}
+                                      <span style="font-size:0.65rem;font-weight:800;color:{t_accent};white-space:nowrap;">{sub_txt}</span>
+                                    </div>
+                                    """
+                                )
+                                st.button(
+                                    short_lbl,
+                                    key=f"btn_board_tile_{t_slug}",
+                                    width="stretch",
+                                    on_click=callback_select_board_tile,
+                                    args=(t_name,),
+                                    help=tile_help,
+                                )
+                    if r_board_idx < 2:
+                        render_html('<div class="eco-mini-road-h" aria-hidden="true"></div>')
+
             curr_r_log = int(st.session_state.get("current_round", 1))
             all_hist = st.session_state.get("action_history", [])
             round_hist = [h for h in all_hist if int(h.get("round", 0)) == curr_r_log]
@@ -732,16 +1270,24 @@ def render_tab_tracker() -> None:
                         "Ronde": "icon_trophy.png",
                     }
                     h_icon = h_icon_map.get(h_cat, "icon_clipboard.png")
+                    h_cid = str(h_item.get("card_id", ""))
+                    if h_cat in ("Project", "Tech", "Skill", "Problem", "Event") and h_cid:
+                        htheme = get_card_color_theme(h_cid)
+                        h_bg = htheme.get("bg", "#DCFCE7")
+                        h_bdr = htheme.get("border", "#16A34A")
+                        h_txt = htheme.get("text", "#15803D")
+                    else:
+                        h_bg, h_bdr, h_txt = "#DCFCE7", "#16A34A", "#15803D"
                     log_rows_html.append(
                         f"""
-                        <div class="eco-log-item">
+                        <div class="eco-log-item" style="border-left:4px solid {h_bdr};">
                           <span style="display:inline-flex;align-items:center;gap:6px;min-width:0;">
                             {icon_img_html(h_icon, 16, h_cat, 0)}
                             <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                               <b>R{h_item['round']}</b> · {html.escape(str(h_item['player_name']))}: <b>{html.escape(str(h_item['card_name']))}</b>
                             </span>
                           </span>
-                          <span style="flex-shrink:0;font-size:0.7rem;font-weight:800;color:#15803D;background:#DCFCE7;border:1px solid #16A34A;border-radius:999px;padding:1px 7px;">
+                          <span style="flex-shrink:0;font-size:0.7rem;font-weight:800;color:{h_txt};background:{h_bg};border:1px solid {h_bdr};border-radius:999px;padding:1px 7px;">
                             {html.escape(str(h_item.get('delta_summary', '')))}
                           </span>
                         </div>
@@ -771,6 +1317,30 @@ def render_tab_tracker() -> None:
                 on_click=callback_undo_last_action,
                 help=undo_help,
             )
+
+    # Inject CSS dinamis warna 8 distrik per indeks tag multiselect Proyek Dibangun tiap pemain
+    proj_tag_css_rules = []
+    for dp_id in range(1, 5):
+        dp_projs = st.session_state.players[dp_id].get("projects", [])
+        for t_idx, proj_id in enumerate(dp_projs, start=1):
+            ptheme = get_card_color_theme(proj_id)
+            p_bg = ptheme.get("bg", "#DCFCE7")
+            p_bdr = ptheme.get("border", "#16A34A")
+            p_txt = ptheme.get("text", "#15803D")
+            proj_tag_css_rules.append(
+                f"""
+                div[data-testid="stExpander"] div[class*="st-key-wrap_proj_sec_{dp_id}"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"]:nth-of-type({t_idx}),
+                div[data-testid="stExpander"] div[class*="st-key-wrap_proj_sec_{dp_id}"] div[data-testid="stMultiSelect"] [data-baseweb="tag"]:nth-of-type({t_idx}) {{
+                    background-color: {p_bg} !important;
+                    border: 1.5px solid {p_bdr} !important;
+                    color: {p_txt} !important;
+                }}
+                """
+            )
+    if proj_tag_css_rules:
+        render_html("<style>\n" + "\n".join(proj_tag_css_rules) + "\n</style>")
+
+    render_html('<div class="eco-road-divider" aria-hidden="true"></div>')
 
     p_cols = st.columns(4, gap="medium")
     for idx in range(4):
@@ -858,6 +1428,27 @@ def render_tab_tracker() -> None:
                     """
                 )
                 rating = get_overall_rating_grade(live_audit["avg_score"])
+                built_districts = [
+                    (d_name, d_cnt)
+                    for d_name, d_cnt in live_audit.get("district_counts", {}).items()
+                    if int(d_cnt) > 0
+                ]
+                if built_districts:
+                    chip_items = []
+                    for d_name, d_cnt in built_districts:
+                        d_th = CATEGORY_COLOR_THEMES.get(d_name, CATEGORY_COLOR_THEMES["Green Park"])
+                        chip_items.append(
+                            f'<span style="background:{d_th["bg"]};color:{d_th["text"]};border:1px solid {d_th["border"]};border-radius:999px;padding:1px 7px;font-size:0.65rem;font-weight:800;">{html.escape(d_name)} {d_cnt}</span>'
+                        )
+                    dist_chips_html = (
+                        f'<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:6px;">{"".join(chip_items)}</div>'
+                    )
+                else:
+                    dist_chips_html = (
+                        '<div style="text-align:center;font-size:0.68rem;font-weight:600;color:#64748B;margin-top:5px;">'
+                        'Belum ada distrik terbangun</div>'
+                    )
+
                 render_html(
                     f"""
                     <div style="background:linear-gradient(135deg,#FFFDF7 0%,{faction['tint']} 100%);border:1.5px solid {faction['border']};border-top:4px solid {faction['accent']};border-radius:16px;padding:10px 12px 9px 12px;margin:4px 0 8px 0;box-shadow:0 4px 12px rgba(22,78,51,0.07);">
@@ -881,6 +1472,7 @@ def render_tab_tracker() -> None:
                         <span>|</span>
                         <span style="display:inline-flex;align-items:center;gap:3px;">{icon_img_html('icon_card_problem.png', 15, 'Krisis', 0)}{len(pl['problems'])} Krisis</span>
                       </div>
+                      {dist_chips_html}
                     </div>
                     """
                 )
@@ -1511,9 +2103,11 @@ def render_tab_audit() -> None:
                     manual_delta=pl.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
                     accumulated_tech_stats=pl.get("accumulated_tech_stats", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
                 )
+            f_aud["player_id"] = p_id
             final_player_audits.append(f_aud)
 
         ranked_players = rank_players_audit(final_player_audits)
+        special_awards = assign_special_city_awards(ranked_players)
         winner = ranked_players[0]
         win_grade = get_overall_rating_grade(winner["avg_score"])
 
@@ -1549,7 +2143,7 @@ def render_tab_audit() -> None:
                   {win_arch_img}<span>{winner['archetype']['name']}</span>
                 </span>
                 <span style="color:#CBD5E1;">|</span>
-                <span style="background:{win_grade['bg']};color:#FFFFFF;font-family:'Fredoka',sans-serif;font-weight:900;font-size:0.86rem;padding:2px 11px;border-radius:999px;">
+                <span style="display:inline-flex;align-items:center;justify-content:center;line-height:1.2;padding:4px 13px;border-radius:999px;font-family:'Fredoka',sans-serif;font-weight:900;font-size:0.88rem;color:#FFFFFF;text-shadow:0 1px 2px rgba(0,0,0,0.25);background:{win_grade['bg']};">
                   Grade {win_grade['grade']}
                 </span>
               </div>
@@ -1593,6 +2187,14 @@ def render_tab_audit() -> None:
                     f'{icon_img_html("icon_scale.png", 16, "Tie-Breaker", 0)}<span>{html.escape(p_res["tie_breaker_reason"])}</span></div>'
                 )
 
+            aw_info = special_awards.get(int(p_res["rank"]))
+            award_badge_html = (
+                f'<div style="margin-bottom:8px;"><span class="eco-award-pill" style="background:{aw_info["bg"]};border-color:{aw_info["border"]};color:{aw_info["color"]};">'
+                f'{html.escape(aw_info["title"])} · {html.escape(aw_info["detail"])}</span></div>'
+                if aw_info
+                else ""
+            )
+
             with podium_cols[r_idx]:
                 b_m = build_aspect_progress_html("Mobility", "M", p_res["M"], p_res["delta_M"], "#0284C7")
                 b_e = build_aspect_progress_html("Energy", "E", p_res["E"], p_res["delta_E"], "#EAB308")
@@ -1611,9 +2213,10 @@ def render_tab_audit() -> None:
                       <h4 style="margin:8px 0 2px 0;font-size:1.24rem;color:#164E33;font-family:'Fredoka','Outfit',sans-serif;font-weight:800;">
                         {html.escape(p_res['city_name'])}
                       </h4>
-                      <div style="font-size:0.84rem;color:#3E5B4C;font-weight:600;margin-bottom:8px;">
+                      <div style="font-size:0.84rem;color:#3E5B4C;font-weight:600;margin-bottom:4px;">
                         Wali Kota: <b>{html.escape(p_res['player_name'])}</b>
                       </div>
+                      {award_badge_html}
                       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#FFFDF7;border:1.5px solid {m_st['border']};border-radius:14px;padding:8px 12px;margin-bottom:10px;">
                         <div style="text-align:left;min-width:0;">
                           <div style="font-family:'Outfit',sans-serif;font-size:0.66rem;color:#3E5B4C;font-weight:800;text-transform:uppercase;">Average Score</div>
@@ -1666,6 +2269,13 @@ def render_tab_audit() -> None:
                         if m_rank_uri
                         else ""
                     )
+                    if p_m.get("tie_breaker_reason"):
+                        rank_status_txt = str(p_m["tie_breaker_reason"])
+                    elif int(p_m.get("rank", 1)) == 1:
+                        rank_status_txt = "Peringkat #1 (Skor Tertinggi)"
+                    else:
+                        gap = max(0.0, float(ranked_players[0]["avg_score"]) - float(p_m["avg_score"]))
+                        rank_status_txt = f"Selisih -{gap:.2f} poin dari #1"
                     matrix_rows_html += f"""
                     <tr style="border-bottom:1px solid #E2ECE5;">
                       <td style="padding:10px 8px;">
@@ -1686,7 +2296,7 @@ def render_tab_audit() -> None:
                       <td class="tabular-num" style="padding:10px 8px;text-align:center;">
                         <span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;color:#B45309;border:1px solid #F59E0B;border-radius:999px;padding:2px 8px;font-weight:800;font-size:0.78rem;">{icon_img_html('icon_coin.png', 15, 'Koin', 0)}{p_m['coins']}</span>
                       </td>
-                      <td style="padding:10px 8px;font-size:0.76rem;color:#3E5B4C;font-weight:600;">{html.escape(p_m.get('tie_breaker_reason') or 'Skor Rata-Rata Tertinggi')}</td>
+                      <td style="padding:10px 8px;font-size:0.76rem;color:#3E5B4C;font-weight:600;">{html.escape(rank_status_txt)}</td>
                     </tr>
                     """
 
@@ -1745,6 +2355,7 @@ def render_tab_audit() -> None:
                 if go is not None:
                     categories = ["Mobility (M)", "Energy (E)", "Environment (ENV)", "Quality of Life (QoL)"]
                     radar_colors = ["#D97706", "#0284C7", "#16A34A", "#E11D48"]
+                    radar_dashes = ["solid", "dash", "dot", "dashdot"]
                     fig = go.Figure()
                     for idx, p_rad in enumerate(ranked_players):
                         vals = [p_rad["M"], p_rad["E"], p_rad["ENV"], p_rad["QoL"]]
@@ -1755,7 +2366,11 @@ def render_tab_audit() -> None:
                                 theta=categories + [categories[0]],
                                 fill="toself",
                                 name=f"#{p_rad['rank']} {p_rad['city_name']}",
-                                line=dict(color=radar_colors[idx % len(radar_colors)], width=2.5),
+                                line=dict(
+                                    color=radar_colors[idx % len(radar_colors)],
+                                    width=2.6,
+                                    dash=radar_dashes[idx % 4],
+                                ),
                                 fillcolor=radar_colors[idx % len(radar_colors)],
                                 opacity=0.28,
                             )
@@ -1784,6 +2399,71 @@ def render_tab_audit() -> None:
                         height=330,
                     )
                     st.plotly_chart(fig, width="stretch")
+
+        # ----------------------------------------------------------------------
+        # GRAFIK BALAPAN SKOR ANTAR-RONDE (ROUND-BY-ROUND PROGRESSION CHART)
+        # ----------------------------------------------------------------------
+        with st.container(border=True, key="panel_round_progression"):
+            render_html(
+                """
+                <div class="eco-ribbon-wrap" style="margin-top:0;">
+                  <span class="eco-ribbon-header" style="font-size:0.76rem;padding:5px 15px;">📈 DINAMIKA SKOR ANTAR-RONDE (RONDE 1–13)</span>
+                </div>
+                """
+            )
+            st.caption("Perkembangan Average Score masing-masing kota di setiap ronde yang telah tercatat.")
+
+            if go is not None:
+                raw_score_hist = list(st.session_state.get("score_history", []))
+                curr_r_audit = int(st.session_state.get("current_round", 1))
+                final_by_pid = {
+                    int(p_r.get("player_id", i + 1)): float(p_r["avg_score"])
+                    for i, p_r in enumerate(ranked_players)
+                }
+                hist_by_round: Dict[int, Dict[int, float]] = {}
+                for h_ent in raw_score_hist:
+                    r_num = int(h_ent.get("round", 1))
+                    sc = h_ent.get("scores", {})
+                    hist_by_round[r_num] = {int(k): float(v) for k, v in sc.items()}
+                hist_by_round[curr_r_audit] = final_by_pid
+                sorted_rounds = sorted(hist_by_round.keys())
+
+                prog_fig = go.Figure()
+                all_y_vals: List[float] = []
+                for p_prog in ranked_players:
+                    pid_prog = int(p_prog.get("player_id", 1))
+                    f_th_prog = FACTION_THEMES[pid_prog]
+                    y_vals = [hist_by_round[r_n].get(pid_prog, float(p_prog["avg_score"])) for r_n in sorted_rounds]
+                    all_y_vals.extend(y_vals)
+                    x_labels = [f"R{r_n}" for r_n in sorted_rounds]
+                    prog_fig.add_trace(
+                        go.Scatter(
+                            x=x_labels,
+                            y=y_vals,
+                            mode="lines+markers",
+                            name=f"#{p_prog['rank']} {p_prog['city_name']}",
+                            line=dict(color=f_th_prog["accent"], width=3),
+                            marker=dict(size=7, color=f_th_prog["accent"], line=dict(width=1.5, color="#FFFDF7")),
+                        )
+                    )
+                min_score = min(all_y_vals) if all_y_vals else 50.0
+                max_score = max(all_y_vals) if all_y_vals else 50.0
+                min_y = max(0, int(min_score - 8))
+                max_y = min(100, int(max_score + 8))
+                if max_y <= min_y:
+                    min_y = max(0, min_y - 5)
+                    max_y = min(100, max_y + 5)
+
+                prog_fig.update_layout(
+                    xaxis=dict(title="Ronde", gridcolor="#E2ECE5", linecolor="#B7D5C4"),
+                    yaxis=dict(title="Average Score", range=[min_y, max_y], gridcolor="#E2ECE5", linecolor="#B7D5C4"),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="#FFFDF7",
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.30, xanchor="center", x=0.5),
+                    margin=dict(l=40, r=24, t=16, b=45),
+                    height=310,
+                )
+                st.plotly_chart(prog_fig, width="stretch")
 
         # ----------------------------------------------------------------------
         # SERTIFIKAT DIPLOMA TATA KOTA MASA DEPAN (TAHUN 2075)
@@ -1888,9 +2568,9 @@ def render_tab_audit() -> None:
                                 "{arch['tagline']}"
                               </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:14px;background:#FFFDF7;border:2px solid {arch['color']};border-radius:18px;padding:12px 18px;box-shadow:0 5px 0 rgba(22,78,51,0.14);">
+                            <div style="display:flex;align-items:center;gap:14px;background:#FFFDF7;border:2px solid {arch['color']};border-radius:18px;padding:16px 22px;box-shadow:0 5px 0 rgba(22,78,51,0.14);">
                               <div style="text-align:center;">
-                                <div style="font-family:'Outfit',sans-serif;font-size:0.72rem;color:#3E5B4C;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">Skor Rata-Rata Akhir</div>
+                                <div style="font-family:'Outfit',sans-serif;font-size:0.72rem;color:#3E5B4C;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;line-height:1.25;margin-bottom:2px;">Skor Rata-Rata Akhir</div>
                                 <div class="stat-outfit" style="font-size:2.4rem;font-weight:900;color:{arch['color']};line-height:1.05;margin:4px 0;">{p_res['avg_score']:.2f}</div>
                                 <div style="font-size:0.75rem;font-weight:700;color:#164E33;display:inline-flex;align-items:center;gap:4px;">Kas Akhir: {icon_img_html('icon_coin.png', 15, 'Koin', 0)}{p_res['coins']} Koin</div>
                               </div>
@@ -1903,7 +2583,7 @@ def render_tab_audit() -> None:
                           </div>
 
                           <div class="pillar-grid-4">
-                            <div class="pillar-tile" style="background:#FEF3C7;border-color:#EAB308;">
+                            <div class="pillar-tile" style="background:#FEF3C7;border-color:#D97706;">
                               <div class="pillar-tile-title" style="color:#B45309;">{e_icon_tag}Energy (E)</div>
                               <div class="pillar-tile-val" style="color:#92400E;">{p_res['E']}</div>
                               <span class="pillar-tile-tier" style="background:#FFFDF7;color:#B45309;">{tiers.get('Energy', {}).get('tier', '-')}</span>
@@ -1949,6 +2629,22 @@ def render_tab_audit() -> None:
                             render_html(f'<div class="diag-card-hdr" style="color:#164E33;">{icon_img_html("icon_clipboard.png", 22, "Rekomendasi", 0)}<span>Rekomendasi Tata Ruang Terpadu</span></div>')
                             st.markdown(nar["recommendations"])
 
+                    cert_download_html = build_certificate_download_html(
+                        p_res=p_res,
+                        nar=nar,
+                        cert_grade=cert_grade,
+                        logo_uri=logo_uri,
+                        seal_uri=seal_uri,
+                    )
+                    st.download_button(
+                        label="📥 Unduh Sertifikat Akreditasi Kota 2075 (.html)",
+                        data=cert_download_html.encode("utf-8"),
+                        file_name=f"Sertifikat_EcoNova_2075_{p_res['city_name'].replace(' ', '_')}.html",
+                        mime="text/html",
+                        key=f"btn_dl_cert_{r_idx}_{p_res.get('player_id', r_idx)}",
+                        width="stretch",
+                    )
+
 
 # ==============================================================================
 # TAB 3: AI GAME MASTER (ECOBOT ROBOT PEMANDU & KONSULTAN TATA KOTA)
@@ -1967,7 +2663,7 @@ def render_tab_game_master() -> None:
     )
     col_gm_side, col_gm_chat = st.columns([3.5, 6.5], gap="large")
 
-    robot_avatar_uri = get_asset_uri("avatar_robot_gm.png")
+    robot_avatar_uri = get_asset_uri("ecobot_avatar.png") or get_asset_uri("avatar_robot_gm.png")
     robot_persona_avatar = (
         f'<img src="{robot_avatar_uri}" alt="EcoBot" style="width:62px;height:62px;min-width:62px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(22,78,51,0.22));" />'
         if robot_avatar_uri

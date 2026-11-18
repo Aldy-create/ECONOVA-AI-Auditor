@@ -6,21 +6,24 @@ validasi kombinasi teknologi T1–T5, konsumsi kartu skill S1–S5, dan navigasi
 
 import copy
 import importlib
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
 
 import cards_data as _cards_data_mod
 
-if not hasattr(_cards_data_mod, "get_resolvable_problems_for_tech"):
+if not hasattr(_cards_data_mod, "get_resolvable_problems_for_tech") or not hasattr(_cards_data_mod, "recommend_cards_for_player"):
     importlib.reload(_cards_data_mod)
 
 from cards_data import (
+    DISTRICT_META,
     EVENT_BY_ID,
     PERMANENT_TECH_BY_CODE,
     PROBLEM_BY_ID,
     PROJECT_BY_ID,
     SKILL_BY_CODE,
+    compute_player_score,
     evaluate_single_event_live,
     get_resolvable_problems_for_tech,
 )
@@ -142,6 +145,17 @@ def init_session_state() -> None:
     if "quick_card_category" not in st.session_state:
         st.session_state.quick_card_category = "Project"
 
+    if "quick_district_filter" not in st.session_state:
+        st.session_state.quick_district_filter = None
+
+    if "score_history" not in st.session_state:
+        st.session_state.score_history = [
+            {"round": 1, "scores": {1: 50.0, 2: 50.0, 3: 50.0, 4: 50.0}}
+        ]
+
+    if "session_import_feedback" not in st.session_state:
+        st.session_state.session_import_feedback = None
+
     if "players" not in st.session_state:
         st.session_state.players = {}
 
@@ -248,7 +262,79 @@ def _capture_undo_snapshot() -> Dict[str, Any]:
         "active_player_id": int(st.session_state.get("active_player_id", 1)),
         "players": copy.deepcopy(st.session_state.get("players", {})),
         "last_deltas": copy.deepcopy(st.session_state.get("last_deltas", {i: {} for i in range(1, 5)})),
+        "score_history": copy.deepcopy(st.session_state.get("score_history", [])),
     }
+
+
+def _compute_current_scores_map(active_event_id: Optional[str] = None) -> Dict[int, float]:
+    """Menghitung Average Score keempat pemain saat ini untuk pencatatan score_history."""
+    scores_map: Dict[int, float] = {}
+    for p_id in range(1, 5):
+        pl = st.session_state.players.get(p_id, {})
+        res = compute_player_score(
+            player_name=pl.get("name", f"Pemain {p_id}"),
+            city_name=pl.get("city", f"Kota {p_id}"),
+            project_ids=pl.get("projects", []),
+            tech_codes=pl.get("techs", []),
+            failed_problem_ids=pl.get("problems", []),
+            coins=int(pl.get("coins", 5)),
+            used_skill_codes=pl.get("skills", []),
+            include_events=False,
+            active_event_id=active_event_id,
+            skill_bonus=pl.get("bonus_stats", {}),
+            active_tech_codes=pl.get("active_techs_this_round", []),
+            accumulated_event_delta=pl.get("accumulated_event_delta", {}),
+            accumulated_event_coins=0,
+            is_immune=bool(pl.get("immune_this_round", False)),
+            manual_delta=pl.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+            accumulated_tech_stats=pl.get("accumulated_tech_stats", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+        )
+        scores_map[p_id] = round(float(res["avg_score"]), 2)
+    return scores_map
+
+
+def _upsert_score_history(round_num: int, scores_map: Dict[int, float]) -> None:
+    """Menyimpan atau memperbarui snapshot Average Score keempat pemain pada ronde tertentu."""
+    if "score_history" not in st.session_state:
+        st.session_state.score_history = []
+    hist = st.session_state.score_history
+    for entry in hist:
+        if int(entry.get("round", 0)) == int(round_num):
+            entry["scores"] = dict(scores_map)
+            return
+    hist.append({"round": int(round_num), "scores": dict(scores_map)})
+    hist.sort(key=lambda e: int(e.get("round", 0)))
+
+
+def callback_select_board_tile(tile_name: str) -> None:
+    """Memilih petak pada Peta Mini 3x3: menyaring Project per distrik atau membuka Tech di City Center."""
+    if tile_name == "City Center":
+        st.session_state.quick_district_filter = None
+        st.session_state.quick_card_category = "Tech"
+        st.session_state.quick_card_picker = "T1"
+    elif tile_name in DISTRICT_META:
+        st.session_state.quick_district_filter = tile_name
+        st.session_state.quick_card_category = "Project"
+        dist_cards = [pid for pid, card in PROJECT_BY_ID.items() if card.get("district") == tile_name]
+        if dist_cards and st.session_state.get("quick_card_picker") not in dist_cards:
+            st.session_state.quick_card_picker = dist_cards[0]
+
+
+def callback_reset_district_filter() -> None:
+    """Mereset filter distrik pada Peta Mini 3x3 agar seluruh kartu Proyek tampil kembali."""
+    st.session_state.quick_district_filter = None
+
+
+def callback_pick_recommended_card(card_id: str, category: str) -> None:
+    """Memuat kartu dari Rekomendasi Taktis langsung ke pratinjau Meja Aksi Kartu Cepat."""
+    if category == "Project" and card_id in PROJECT_BY_ID:
+        st.session_state.quick_district_filter = None
+        st.session_state.quick_card_category = "Project"
+        st.session_state.quick_card_picker = card_id
+    elif category == "Tech" and card_id in PERMANENT_TECH_BY_CODE:
+        st.session_state.quick_district_filter = None
+        st.session_state.quick_card_category = "Tech"
+        st.session_state.quick_card_picker = card_id
 
 
 def _format_delta_summary(deltas: Dict[str, int]) -> str:
@@ -324,6 +410,8 @@ def callback_undo_last_action() -> None:
     st.session_state.active_player_id = int(snap.get("active_player_id", 1))
     st.session_state.players = copy.deepcopy(snap.get("players", {}))
     st.session_state.last_deltas = copy.deepcopy(snap.get("last_deltas", {i: {} for i in range(1, 5)}))
+    if "score_history" in snap and snap["score_history"]:
+        st.session_state.score_history = copy.deepcopy(snap["score_history"])
 
     for p_id in range(1, 5):
         pl = st.session_state.players[p_id]
@@ -581,6 +669,9 @@ def callback_next_round() -> None:
 
     st.session_state.round_event_history.append(commit_entry)
 
+    # Catat skor penutup ronde berjalan (setelah komit Event) & skor awal ronde baru
+    _upsert_score_history(prev_round, _compute_current_scores_map(active_event_id=None))
+
     if st.session_state.current_round < 13:
         st.session_state.current_round += 1
 
@@ -595,6 +686,9 @@ def callback_next_round() -> None:
         st.session_state.players[p_id]["active_techs_this_round"] = []
         st.session_state.players[p_id]["tech_activations_this_round"] = []
         st.session_state.players[p_id]["immune_this_round"] = False
+
+    if int(st.session_state.current_round) != prev_round:
+        _upsert_score_history(int(st.session_state.current_round), _compute_current_scores_map(active_event_id=None))
 
     ev_label = EVENT_BY_ID[curr_ev]["name"] if has_valid_ev else "Tanpa Event"
     _record_action_entry(
@@ -658,6 +752,120 @@ def callback_prev_round() -> None:
             st.session_state.selected_event_id = restored
             st.session_state.widget_event_picker = restored
 
+        curr_target_r = int(st.session_state.current_round)
+        st.session_state.score_history = [
+            e for e in st.session_state.get("score_history", []) if int(e.get("round", 1)) <= curr_target_r
+        ]
+        if not st.session_state.score_history:
+            st.session_state.score_history = [
+                {"round": 1, "scores": {1: 50.0, 2: 50.0, 3: 50.0, 4: 50.0}}
+            ]
+
+
+def callback_load_demo_simulation() -> None:
+    """Mengisi skenario simulasi realistis Ronde 11 untuk keperluan demo & presentasi juri."""
+    demo_players = {
+        1: {
+            "name": "Alya",
+            "city": "Nusantara Green",
+            "projects": ["P017", "P021", "P026", "P047", "P059"],
+            "techs": ["T1", "T3", "T5"],
+            "skills": ["S2"],
+            "problems": [],
+            "coins": 24,
+        },
+        2: {
+            "name": "Bima",
+            "city": "Voltara Grid",
+            "projects": ["P092", "P094", "P098", "P105", "P055"],
+            "techs": ["T1", "T2"],
+            "skills": ["S1"],
+            "problems": ["PR02"],
+            "coins": 21,
+        },
+        3: {
+            "name": "Citra",
+            "city": "MetroPulse",
+            "projects": ["P047", "P050", "P054", "P059", "P065"],
+            "techs": ["T2", "T4"],
+            "skills": ["S3"],
+            "problems": [],
+            "coins": 18,
+        },
+        4: {
+            "name": "Dimas",
+            "city": "AstraNova",
+            "projects": ["P002", "P031", "P077"],
+            "techs": ["T2"],
+            "skills": ["S5"],
+            "problems": ["PR01", "PR03"],
+            "coins": 9,
+        },
+    }
+
+    st.session_state.active_tab = "Tab 1: Live Tracker"
+    st.session_state.current_round = 11
+    st.session_state.used_events = [f"EV{r:02d}" for r in range(1, 11)]
+    st.session_state.round_event_history = []
+    st.session_state.action_history = []
+    st.session_state.last_deltas = {p_id: {} for p_id in range(1, 5)}
+    st.session_state.selected_event_id = "EV11"
+    st.session_state.widget_event_picker = "EV11"
+    st.session_state.audit_triggered = False
+    st.session_state.active_player_id = 1
+    st.session_state.tech_used_this_round = {
+        p_id: {t: False for t in ["T1", "T2", "T3", "T4", "T5"]} for p_id in range(1, 5)
+    }
+
+    for p_id, cfg in demo_players.items():
+        st.session_state.players[p_id] = {
+            "name": cfg["name"],
+            "city": cfg["city"],
+            "projects": list(cfg["projects"]),
+            "techs": list(cfg["techs"]),
+            "skills": list(cfg["skills"]),
+            "problems": list(cfg["problems"]),
+            "coins": cfg["coins"],
+            "committed_event_coins": 0,
+            "manual_points": {"M": 0, "E": 0, "ENV": 0, "QoL": 0},
+            "active_techs_this_round": [],
+            "tech_activations_this_round": [],
+            "accumulated_tech_stats": {"M": 0, "E": 0, "ENV": 0, "QoL": 0},
+            "bonus_stats": {"M": 0, "E": 0, "ENV": 0, "QoL": 0},
+            "accumulated_event_delta": {"M": 0, "E": 0, "ENV": 0, "QoL": 0},
+            "accumulated_event_coins": 0,
+            "immune_this_round": False,
+            "tech_log": [f"Simulasi Demo R11: {cfg['city']} siap diaudit"],
+        }
+        st.session_state[f"widget_name_{p_id}"] = cfg["name"]
+        st.session_state[f"widget_city_{p_id}"] = cfg["city"]
+        st.session_state[f"widget_projects_{p_id}"] = list(cfg["projects"])
+        st.session_state[f"widget_techs_{p_id}"] = list(cfg["techs"])
+        st.session_state[f"widget_skills_{p_id}"] = list(cfg["skills"])
+        st.session_state[f"widget_problems_{p_id}"] = list(cfg["problems"])
+        st.session_state[f"widget_coins_{p_id}"] = cfg["coins"]
+        for stat_key in ["M", "E", "ENV", "QoL"]:
+            st.session_state[f"widget_man_{stat_key}_{p_id}"] = 0
+
+    st.session_state.quick_district_filter = None
+    target_scores = _compute_current_scores_map(active_event_id=None)
+    demo_hist: List[Dict[str, Any]] = []
+    # Kurva progres realistis R1..R11 dari baseline 50 menuju skor aktual Ronde 11
+    curve_weights = [0.0, 0.08, 0.17, 0.28, 0.39, 0.51, 0.62, 0.74, 0.84, 0.93, 1.0]
+    crisis_dips = {1: 0.0, 2: -1.5, 3: 0.0, 4: -2.2}
+    for r_idx, w in enumerate(curve_weights, start=1):
+        r_scores: Dict[int, float] = {}
+        for p_id in range(1, 5):
+            base = 50.0
+            final_v = float(target_scores[p_id])
+            dip = crisis_dips[p_id] if r_idx in (6, 8) else 0.0
+            val = base + (final_v - base) * w + dip
+            if r_idx == 11:
+                val = final_v
+            r_scores[p_id] = round(max(0.0, min(100.0, val)), 2)
+        demo_hist.append({"round": r_idx, "scores": r_scores})
+    st.session_state.score_history = demo_hist
+
 
 def callback_reset_game() -> None:
     st.session_state.active_tab = "Tab 1: Live Tracker"
@@ -671,6 +879,10 @@ def callback_reset_game() -> None:
         st.session_state.widget_event_picker = None
     st.session_state.audit_triggered = False
     st.session_state.active_player_id = 1
+    st.session_state.quick_district_filter = None
+    st.session_state.score_history = [
+        {"round": 1, "scores": {1: 50.0, 2: 50.0, 3: 50.0, 4: 50.0}}
+    ]
 
     st.session_state.tech_used_this_round = {
         p_id: {t: False for t in ["T1", "T2", "T3", "T4", "T5"]} for p_id in range(1, 5)
@@ -874,3 +1086,165 @@ def callback_use_skill_solve_problem(p_id: int, s_code: str, prob_id: str) -> No
     p_name = pcard.get("name", prob_id)
     pl["tech_log"].append(f"R{curr_r}: {s_code} dipakai & terhapus (Amankan Krisis [{p_name}])")
     _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", s_code, f"{s_code} Amankan {prob_id}", "Skill", delta, snap)
+
+
+def export_session_json() -> str:
+    """Mengekspor state permainan EcoNova saat ini menjadi string JSON terformat rapi."""
+    payload = {
+        "current_round": int(st.session_state.get("current_round", 1)),
+        "used_events": list(st.session_state.get("used_events", [])),
+        "round_event_history": copy.deepcopy(st.session_state.get("round_event_history", [])),
+        "score_history": copy.deepcopy(st.session_state.get("score_history", [])),
+        "selected_event_id": st.session_state.get("selected_event_id"),
+        "active_player_id": int(st.session_state.get("active_player_id", 1)),
+        "players": copy.deepcopy(st.session_state.get("players", {})),
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False)
+
+
+def _normalize_player_dict(raw_pl: Dict[str, Any], p_id: int) -> Dict[str, Any]:
+    """Menormalisasi struktur data 1 pemain agar seluruh field wajib tersedia & bertipe aman."""
+    man_raw = raw_pl.get("manual_points", {}) or {}
+    bon_raw = raw_pl.get("bonus_stats", {}) or {}
+    ev_raw = raw_pl.get("accumulated_event_delta", {}) or {}
+    tech_st_raw = raw_pl.get("accumulated_tech_stats", {}) or {}
+    return {
+        "name": str(raw_pl.get("name") or f"Pemain {p_id}"),
+        "city": str(raw_pl.get("city") or f"Kota {p_id}"),
+        "projects": [str(x) for x in raw_pl.get("projects", []) if str(x) in PROJECT_BY_ID],
+        "techs": [str(x) for x in raw_pl.get("techs", []) if str(x) in PERMANENT_TECH_BY_CODE],
+        "skills": [str(x) for x in raw_pl.get("skills", []) if str(x) in SKILL_BY_CODE],
+        "problems": [str(x) for x in raw_pl.get("problems", []) if str(x) in PROBLEM_BY_ID],
+        "coins": max(0, int(raw_pl.get("coins", 5))),
+        "committed_event_coins": max(0, int(raw_pl.get("committed_event_coins", 0))),
+        "manual_points": {k: int(man_raw.get(k, 0)) for k in ("M", "E", "ENV", "QoL")},
+        "active_techs_this_round": [str(x) for x in raw_pl.get("active_techs_this_round", []) if str(x) in PERMANENT_TECH_BY_CODE],
+        "tech_activations_this_round": list(raw_pl.get("tech_activations_this_round", [])),
+        "accumulated_tech_stats": {k: int(tech_st_raw.get(k, 0)) for k in ("M", "E", "ENV", "QoL")},
+        "bonus_stats": {k: int(bon_raw.get(k, 0)) for k in ("M", "E", "ENV", "QoL")},
+        "accumulated_event_delta": {k: int(ev_raw.get(k, 0)) for k in ("M", "E", "ENV", "QoL")},
+        "accumulated_event_coins": int(raw_pl.get("accumulated_event_coins", 0)),
+        "immune_this_round": bool(raw_pl.get("immune_this_round", False)),
+        "tech_log": [str(x) for x in raw_pl.get("tech_log", [])],
+    }
+
+
+def import_session_json(raw_json: str) -> Tuple[bool, str]:
+    """
+    Memvalidasi dan memulihkan state sesi EcoNova dari string JSON.
+    Mengonversi kunci string '1'..'4' kembali ke integer 1..4 serta menyinkronkan seluruh
+    kunci widget_* di st.session_state tanpa memicu StreamlitAPIException.
+    """
+    if not raw_json or not str(raw_json).strip():
+        return False, "File JSON kosong."
+
+    try:
+        data = json.loads(raw_json)
+    except Exception as exc:
+        return False, f"Gagal mengurai JSON: {exc}"
+
+    if not isinstance(data, dict) or not isinstance(data.get("players"), dict):
+        return False, "Struktur JSON tidak valid: field 'players' tidak ditemukan."
+
+    raw_players = data["players"]
+    restored_players: Dict[int, Dict[str, Any]] = {}
+    for p_id in range(1, 5):
+        raw_pl = raw_players.get(str(p_id))
+        if raw_pl is None:
+            raw_pl = raw_players.get(p_id)
+        if not isinstance(raw_pl, dict):
+            return False, f"Data pemain #{p_id} ('{p_id}') tidak ditemukan atau tidak valid."
+        restored_players[p_id] = _normalize_player_dict(raw_pl, p_id)
+
+    curr_round = max(1, min(13, int(data.get("current_round", 1))))
+    used_events = [str(e) for e in data.get("used_events", []) if str(e) in EVENT_BY_ID]
+
+    raw_rev_hist = data.get("round_event_history", [])
+    restored_rev_hist: List[Dict[str, Any]] = []
+    if isinstance(raw_rev_hist, list):
+        for item in raw_rev_hist:
+            if not isinstance(item, dict):
+                continue
+            item_copy = copy.deepcopy(item)
+            item_players = item_copy.get("players", {})
+            if isinstance(item_players, dict):
+                item_copy["players"] = {
+                    int(k): v for k, v in item_players.items() if str(k).isdigit()
+                }
+            restored_rev_hist.append(item_copy)
+
+    raw_score_hist = data.get("score_history", [])
+    restored_score_hist: List[Dict[str, Any]] = []
+    if isinstance(raw_score_hist, list):
+        for item in raw_score_hist:
+            if not isinstance(item, dict) or not isinstance(item.get("scores"), dict):
+                continue
+            sc_map = {
+                int(k): float(v)
+                for k, v in item["scores"].items()
+                if str(k) in ("1", "2", "3", "4")
+            }
+            if len(sc_map) == 4:
+                restored_score_hist.append({"round": int(item.get("round", 1)), "scores": sc_map})
+
+    sel_ev = data.get("selected_event_id")
+    if sel_ev not in EVENT_BY_ID or sel_ev in used_events:
+        sel_ev = None
+
+    act_pid = int(data.get("active_player_id", 1))
+    if act_pid not in (1, 2, 3, 4):
+        act_pid = 1
+
+    st.session_state.current_round = curr_round
+    st.session_state.used_events = used_events
+    st.session_state.round_event_history = restored_rev_hist
+    st.session_state.selected_event_id = sel_ev
+    st.session_state.widget_event_picker = sel_ev
+    st.session_state.active_player_id = act_pid
+    st.session_state.players = restored_players
+    st.session_state.audit_triggered = False
+    st.session_state.action_history = []
+    st.session_state.last_deltas = {p_id: {} for p_id in range(1, 5)}
+    st.session_state.quick_district_filter = None
+    st.session_state.tech_used_this_round = {
+        p_id: {
+            t: (t in restored_players[p_id].get("active_techs_this_round", []))
+            for t in ["T1", "T2", "T3", "T4", "T5"]
+        }
+        for p_id in range(1, 5)
+    }
+
+    for p_id, pl in restored_players.items():
+        st.session_state[f"widget_name_{p_id}"] = pl["name"]
+        st.session_state[f"widget_city_{p_id}"] = pl["city"]
+        st.session_state[f"widget_projects_{p_id}"] = list(pl["projects"])
+        st.session_state[f"widget_techs_{p_id}"] = list(pl["techs"])
+        st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
+        st.session_state[f"widget_problems_{p_id}"] = list(pl["problems"])
+        st.session_state[f"widget_coins_{p_id}"] = int(pl["coins"])
+        for stat_key in ("M", "E", "ENV", "QoL"):
+            st.session_state[f"widget_man_{stat_key}_{p_id}"] = int(pl["manual_points"].get(stat_key, 0))
+
+    if restored_score_hist:
+        st.session_state.score_history = restored_score_hist
+    else:
+        st.session_state.score_history = [
+            {"round": curr_round, "scores": _compute_current_scores_map(active_event_id=None)}
+        ]
+
+    return True, f"Sesi Ronde {curr_round} berhasil dipulihkan ({len(used_events)} Event di Discard)."
+
+
+def callback_import_uploaded_session() -> None:
+    """Callback tombol Muat Sesi JSON agar mutasi widget_* berjalan sebelum render ulang."""
+    uploaded_obj = st.session_state.get("uploader_session_json")
+    if uploaded_obj is None:
+        st.session_state.session_import_feedback = (False, "Pilih file .json sesi terlebih dahulu.")
+        return
+    try:
+        raw_text = uploaded_obj.getvalue().decode("utf-8")
+    except Exception as exc:
+        st.session_state.session_import_feedback = (False, f"Gagal membaca file: {exc}")
+        return
+    ok, msg = import_session_json(raw_text)
+    st.session_state.session_import_feedback = (ok, msg)

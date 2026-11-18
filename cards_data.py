@@ -12,12 +12,12 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 DISTRICT_META: Dict[str, Dict[str, str]] = {'Residential': {'emoji': '🏘️',
-                 'color': '#BE123C',
-                 'badge_bg': '#FFE4E6',
+                 'color': '#8B5CF6',
+                 'badge_bg': '#EDE9FE',
                  'focus': 'Quality of Life (QoL) & Energy/ENV',
                  'description': 'Perumahan berkelanjutan, apartemen hijau, dan hunian pintar warga.'},
  'Green Park': {'emoji': '🌳',
-                'color': '#15803D',
+                'color': '#16A34A',
                 'badge_bg': '#DCFCE7',
                 'focus': 'Environment (ENV) & Quality of Life',
                 'description': 'Ruang terbuka hijau, hutan kota, taman botani, dan koridor biodiversitas.'},
@@ -27,31 +27,31 @@ DISTRICT_META: Dict[str, Dict[str, str]] = {'Residential': {'emoji': '🏘️',
                 'focus': 'Energy (E) & Environment (ENV)',
                 'description': 'Kawasan industri sirkular, pabrik pintar, daur ulang, dan logistik hijau.'},
  'Transportation': {'emoji': '🚝',
-                    'color': '#0369A1',
+                    'color': '#0284C7',
                     'badge_bg': '#E0F2FE',
                     'focus': 'Mobility (M)',
                     'description': 'Jaringan transportasi massal elektrik, metro, kereta cepat, dan jalur '
                                    'sepeda.'},
  'Public Services': {'emoji': '🏥',
-                     'color': '#9D174D',
+                     'color': '#EC4899',
                      'badge_bg': '#FCE7F3',
                      'focus': 'Quality of Life (QoL)',
                      'description': 'Sekolah publik, rumah sakit cerdas, pusat riset, dan layanan darurat '
                                     'terpadu.'},
  'Commercial': {'emoji': '🏬',
-                'color': '#6D28D9',
-                'badge_bg': '#EDE9FE',
+                'color': '#0D9488',
+                'badge_bg': '#CCFBF1',
                 'focus': 'Quality of Life (QoL) & Energy',
                 'description': 'Pusat bisnis rendah karbon, ritel pintar, ekowisata, dan ekonomi masa '
                                'depan.'},
  'Energy': {'emoji': '⚡',
-            'color': '#C2410C',
-            'badge_bg': '#FFEDD5',
+            'color': '#D97706',
+            'badge_bg': '#FEF9C3',
             'focus': 'Energy (E) & Environment (ENV)',
             'description': 'Pembangkit surya, turbin angin, mikrohidro, hidrogen, dan smart megagrid.'},
  'Water': {'emoji': '💧',
-           'color': '#0284C7',
-           'badge_bg': '#E0F2FE',
+           'color': '#2563EB',
+           'badge_bg': '#DBEAFE',
            'focus': 'Environment (ENV) & Quality of Life',
            'description': 'Pengolahan air bersih, restorasi sungai, pengendalian banjir, dan desalinasi.'}}
 
@@ -4479,123 +4479,147 @@ EVENT_BY_ID: Dict[str, Dict[str, Any]] = {e["id"]: e for e in EVENT_CARDS}
 CATEGORY_COLOR_THEMES: Dict[str, Dict[str, str]] = {
     "Energy": {
         "name": "Energy",
-        "primary": "#F59E0B",
-        "accent": "#FBBF24",
-        "bg_glass": "rgba(245, 158, 11, 0.16)",
-        "border_glass": "rgba(245, 158, 11, 0.45)",
-        "text": "#B45309",
-        "badge_bg": "#FEF3C7",
-        "gradient": "linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(251, 191, 36, 0.12) 100%)",
+        "primary": "#EAB308",
+        "accent": "#FACC15",
+        "bg": "#FEF9C3",
+        "border": "#EAB308",
+        "bg_glass": "rgba(234, 179, 8, 0.16)",
+        "border_glass": "#EAB308",
+        "text": "#A16207",
+        "badge_bg": "#FEF9C3",
+        "gradient": "linear-gradient(135deg, rgba(254, 249, 195, 0.9) 0%, rgba(253, 224, 71, 0.32) 100%)",
     },
     "Problem": {
         "name": "Problem",
-        "primary": "#EF4444",
-        "accent": "#DC2626",
-        "bg_glass": "rgba(239, 68, 68, 0.16)",
-        "border_glass": "rgba(239, 68, 68, 0.45)",
-        "text": "#BE123C",
+        "primary": "#F43F5E",
+        "accent": "#E11D48",
+        "bg": "#FFE4E6",
+        "border": "#F43F5E",
+        "bg_glass": "rgba(244, 63, 94, 0.16)",
+        "border_glass": "#F43F5E",
+        "text": "#9F1239",
         "badge_bg": "#FFE4E6",
-        "gradient": "linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(220, 38, 38, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(255, 228, 230, 0.9) 0%, rgba(253, 164, 175, 0.35) 100%)",
     },
     "Green Park": {
         "name": "Green Park",
-        "primary": "#059669",
-        "accent": "#10B981",
-        "bg_glass": "rgba(5, 150, 105, 0.16)",
-        "border_glass": "rgba(5, 150, 105, 0.4)",
-        "text": "#047857",
+        "primary": "#16A34A",
+        "accent": "#22C55E",
+        "bg": "#DCFCE7",
+        "border": "#16A34A",
+        "bg_glass": "rgba(22, 163, 74, 0.16)",
+        "border_glass": "#16A34A",
+        "text": "#15803D",
         "badge_bg": "#DCFCE7",
-        "gradient": "linear-gradient(135deg, rgba(5, 150, 105, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(220, 252, 231, 0.9) 0%, rgba(134, 239, 172, 0.32) 100%)",
     },
     "Transportation": {
         "name": "Transportation",
         "primary": "#0284C7",
         "accent": "#06B6D4",
+        "bg": "#E0F2FE",
+        "border": "#0284C7",
         "bg_glass": "rgba(2, 132, 199, 0.16)",
-        "border_glass": "rgba(2, 132, 199, 0.4)",
+        "border_glass": "#0284C7",
         "text": "#0369A1",
         "badge_bg": "#E0F2FE",
-        "gradient": "linear-gradient(135deg, rgba(2, 132, 199, 0.22) 0%, rgba(6, 182, 212, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(224, 242, 254, 0.9) 0%, rgba(125, 211, 252, 0.32) 100%)",
     },
     "Residential": {
         "name": "Residential",
         "primary": "#8B5CF6",
         "accent": "#7C3AED",
+        "bg": "#EDE9FE",
+        "border": "#8B5CF6",
         "bg_glass": "rgba(139, 92, 246, 0.16)",
-        "border_glass": "rgba(139, 92, 246, 0.4)",
+        "border_glass": "#8B5CF6",
         "text": "#6D28D9",
         "badge_bg": "#EDE9FE",
-        "gradient": "linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(124, 58, 237, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(237, 233, 254, 0.9) 0%, rgba(196, 181, 253, 0.32) 100%)",
     },
     "Industrial": {
         "name": "Industrial",
-        "primary": "#64748B",
-        "accent": "#475569",
-        "bg_glass": "rgba(100, 116, 139, 0.16)",
-        "border_glass": "rgba(100, 116, 139, 0.4)",
-        "text": "#334155",
-        "badge_bg": "#F1F5F9",
-        "gradient": "linear-gradient(135deg, rgba(100, 116, 139, 0.22) 0%, rgba(71, 85, 105, 0.12) 100%)",
+        "primary": "#B45309",
+        "accent": "#D97706",
+        "bg": "#FEF3C7",
+        "border": "#B45309",
+        "bg_glass": "rgba(180, 83, 9, 0.16)",
+        "border_glass": "#B45309",
+        "text": "#92400E",
+        "badge_bg": "#FEF3C7",
+        "gradient": "linear-gradient(135deg, rgba(254, 243, 199, 0.9) 0%, rgba(252, 211, 77, 0.32) 100%)",
     },
     "Public Services": {
         "name": "Public Services",
         "primary": "#EC4899",
         "accent": "#DB2777",
+        "bg": "#FCE7F3",
+        "border": "#EC4899",
         "bg_glass": "rgba(236, 72, 153, 0.16)",
-        "border_glass": "rgba(236, 72, 153, 0.4)",
+        "border_glass": "#EC4899",
         "text": "#BE185D",
         "badge_bg": "#FCE7F3",
-        "gradient": "linear-gradient(135deg, rgba(236, 72, 153, 0.22) 0%, rgba(219, 39, 119, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(252, 231, 243, 0.9) 0%, rgba(249, 168, 212, 0.32) 100%)",
     },
     "Commercial": {
         "name": "Commercial",
         "primary": "#0D9488",
         "accent": "#14B8A6",
+        "bg": "#CCFBF1",
+        "border": "#0D9488",
         "bg_glass": "rgba(13, 148, 136, 0.16)",
-        "border_glass": "rgba(13, 148, 136, 0.4)",
+        "border_glass": "#0D9488",
         "text": "#0F766E",
         "badge_bg": "#CCFBF1",
-        "gradient": "linear-gradient(135deg, rgba(13, 148, 136, 0.22) 0%, rgba(20, 184, 166, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(204, 251, 241, 0.9) 0%, rgba(94, 234, 212, 0.32) 100%)",
     },
     "Water": {
         "name": "Water",
         "primary": "#2563EB",
         "accent": "#3B82F6",
+        "bg": "#DBEAFE",
+        "border": "#2563EB",
         "bg_glass": "rgba(37, 99, 235, 0.16)",
-        "border_glass": "rgba(37, 99, 235, 0.4)",
+        "border_glass": "#2563EB",
         "text": "#1D4ED8",
         "badge_bg": "#DBEAFE",
-        "gradient": "linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(59, 130, 246, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(219, 234, 254, 0.9) 0%, rgba(147, 197, 253, 0.32) 100%)",
     },
     "Tech": {
         "name": "Permanent Tech",
         "primary": "#0284C7",
         "accent": "#06B6D4",
+        "bg": "#E0F2FE",
+        "border": "#0284C7",
         "bg_glass": "rgba(2, 132, 199, 0.16)",
-        "border_glass": "rgba(2, 132, 199, 0.4)",
-        "text": "#0369A1",
+        "border_glass": "#0284C7",
+        "text": "#075985",
         "badge_bg": "#E0F2FE",
-        "gradient": "linear-gradient(135deg, rgba(2, 132, 199, 0.22) 0%, rgba(6, 182, 212, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(224, 242, 254, 0.9) 0%, rgba(125, 211, 252, 0.32) 100%)",
     },
     "Skill": {
         "name": "Consumable Skill",
-        "primary": "#8B5CF6",
-        "accent": "#A855F7",
-        "bg_glass": "rgba(139, 92, 246, 0.16)",
-        "border_glass": "rgba(139, 92, 246, 0.4)",
-        "text": "#6D28D9",
-        "badge_bg": "#EDE9FE",
-        "gradient": "linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(168, 85, 247, 0.12) 100%)",
+        "primary": "#F59E0B",
+        "accent": "#D97706",
+        "bg": "#FEF3C7",
+        "border": "#F59E0B",
+        "bg_glass": "rgba(245, 158, 11, 0.16)",
+        "border_glass": "#F59E0B",
+        "text": "#92400E",
+        "badge_bg": "#FEF3C7",
+        "gradient": "linear-gradient(135deg, rgba(254, 243, 199, 0.9) 0%, rgba(252, 211, 77, 0.32) 100%)",
     },
     "Event": {
         "name": "Global Event",
-        "primary": "#059669",
+        "primary": "#16A34A",
         "accent": "#10B981",
-        "bg_glass": "rgba(5, 150, 105, 0.16)",
-        "border_glass": "rgba(5, 150, 105, 0.4)",
-        "text": "#047857",
+        "bg": "#DCFCE7",
+        "border": "#16A34A",
+        "bg_glass": "rgba(22, 163, 74, 0.16)",
+        "border_glass": "#16A34A",
+        "text": "#15803D",
         "badge_bg": "#DCFCE7",
-        "gradient": "linear-gradient(135deg, rgba(5, 150, 105, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%)",
+        "gradient": "linear-gradient(135deg, rgba(220, 252, 231, 0.9) 0%, rgba(134, 239, 172, 0.32) 100%)",
     },
 }
 
@@ -5837,3 +5861,269 @@ def smart_rulebook_search(query: str) -> str:
         )
 
     return "\n\n".join(out_lines)
+
+
+def recommend_cards_for_player(
+    player_data: Dict[str, Any],
+    active_event_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Smart Strategy Advisor: menganalisis skor 4 pilar pemain saat ini via compute_player_score(),
+    mengidentifikasi pilar terlemah (min_aspect) dan spread, lalu menyaring Project Card & Permanent Tech
+    yang syarat Tech-nya sudah terpenuhi dan terjangkau oleh koin efektif (termasuk diskon EV03/EV05).
+    Mengembalikan 3 rekomendasi teratas beserta alasan strategis singkatnya.
+    """
+    audit = compute_player_score(
+        player_name=player_data.get("name", "Pemain"),
+        city_name=player_data.get("city", "Kota"),
+        project_ids=player_data.get("projects", []),
+        tech_codes=player_data.get("techs", []),
+        failed_problem_ids=player_data.get("problems", []),
+        coins=int(player_data.get("coins", 0)),
+        used_skill_codes=player_data.get("skills", []),
+        include_events=False,
+        active_event_id=active_event_id,
+        skill_bonus=player_data.get("bonus_stats", {}),
+        active_tech_codes=player_data.get("active_techs_this_round", []),
+        accumulated_event_delta=player_data.get("accumulated_event_delta", {}),
+        accumulated_event_coins=0,
+        is_immune=bool(player_data.get("immune_this_round", False)),
+        manual_delta=player_data.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+        accumulated_tech_stats=player_data.get("accumulated_tech_stats", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+    )
+
+    pillars = {
+        "M": int(audit["M"]),
+        "E": int(audit["E"]),
+        "ENV": int(audit["ENV"]),
+        "QoL": int(audit["QoL"]),
+    }
+    min_aspect = min(pillars, key=lambda k: pillars[k])
+    max_aspect_val = max(pillars.values())
+    spread = max_aspect_val - pillars[min_aspect]
+    effective_coins = int(audit["coins"])
+
+    owned_projs = set(player_data.get("projects", []))
+    owned_techs = set(player_data.get("techs", []))
+    aspect_names = {
+        "M": "Mobility",
+        "E": "Energy",
+        "ENV": "Environment",
+        "QoL": "Quality of Life",
+    }
+
+    candidates: List[Tuple[Tuple[Any, ...], Dict[str, Any]]] = []
+
+    for c in PROJECT_CARDS:
+        cid = c["id"]
+        if cid in owned_projs:
+            continue
+        req_techs = c.get("tech_list", [])
+        if any(t not in owned_techs for t in req_techs):
+            continue
+        base_cost = int(c.get("cost", 0))
+        discount = 2 if (active_event_id == "EV03" and c.get("district") == "Energy") else 0
+        eff_cost = max(0, base_cost - discount)
+        if eff_cost > effective_coins:
+            continue
+
+        weak_gain = int(c.get(min_aspect, 0))
+        total_gain = sum(int(c.get(k, 0)) for k in ("M", "E", "ENV", "QoL"))
+        if total_gain <= 0:
+            continue
+
+        efficiency = weak_gain / max(1, eff_cost)
+        score_val = round(weak_gain * 3.5 + total_gain * 1.1 + efficiency * 2.5 - eff_cost * 0.25, 4)
+        priority_key = (1 if weak_gain > 0 else 0, score_val, total_gain, -eff_cost)
+
+        if weak_gain > 0 and spread >= 20:
+            reason = (
+                f"Menutup ketertinggalan {aspect_names[min_aspect]} (+{weak_gain} {min_aspect}) "
+                f"agar terhindar dari status At-Risk"
+            )
+        elif weak_gain > 0:
+            reason = (
+                f"Memperkuat pilar terlemah {aspect_names[min_aspect]} "
+                f"(+{weak_gain} {min_aspect} · {eff_cost} Koin)"
+            )
+        else:
+            reason = f"Menambah total +{total_gain} poin infrastruktur secara efisien ({eff_cost} Koin)"
+
+        candidates.append(
+            (
+                priority_key,
+                {
+                    "id": cid,
+                    "name": c["name"],
+                    "category": "Project",
+                    "district": c.get("district", "Project"),
+                    "base_cost": base_cost,
+                    "effective_cost": eff_cost,
+                    "discount_applied": discount > 0,
+                    "weak_aspect": min_aspect,
+                    "weak_gain": weak_gain,
+                    "total_gain": total_gain,
+                    "effect_summary": c.get("effect_summary", c.get("effect_str", "")),
+                    "reason": reason,
+                },
+            )
+        )
+
+    for t in PERMANENT_TECH_BY_CODE.values():
+        tcode = t["code"]
+        if tcode in owned_techs:
+            continue
+        base_cost = int(t.get("cost", 0))
+        discount = 2 if active_event_id == "EV05" else 0
+        eff_cost = max(0, base_cost - discount)
+        if eff_cost > effective_coins:
+            continue
+
+        weak_gain = int(t.get(min_aspect, 0))
+        total_gain = sum(int(t.get(k, 0)) for k in ("M", "E", "ENV", "QoL"))
+        efficiency = weak_gain / max(1, eff_cost)
+        score_val = round(weak_gain * 3.2 + total_gain * 1.1 + efficiency * 2.0 - eff_cost * 0.2 + 0.8, 4)
+        priority_key = (1 if weak_gain > 0 else 0, score_val, total_gain, -eff_cost)
+
+        if weak_gain > 0:
+            reason = (
+                f"Tech permanen penopang {aspect_names[min_aspect]} "
+                f"(+{weak_gain} {min_aspect}/ronde) & pembuka syarat proyek"
+            )
+        else:
+            reason = (
+                f"Tech permanen ({t.get('effect_summary', '')}) untuk membuka syarat proyek lanjutan"
+            )
+
+        candidates.append(
+            (
+                priority_key,
+                {
+                    "id": tcode,
+                    "name": t["name"],
+                    "category": "Tech",
+                    "district": "City Center",
+                    "base_cost": base_cost,
+                    "effective_cost": eff_cost,
+                    "discount_applied": discount > 0,
+                    "weak_aspect": min_aspect,
+                    "weak_gain": weak_gain,
+                    "total_gain": total_gain,
+                    "effect_summary": t.get("effect_summary", ""),
+                    "reason": reason,
+                },
+            )
+        )
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return [item[1] for item in candidates[:3]]
+
+
+def assign_special_city_awards(ranked_players: List[Dict[str, Any]]) -> Dict[int, Dict[str, str]]:
+    """
+    Memberikan 1 gelar penghargaan spesial yang unik kepada masing-masing dari 4 pemain
+    berdasarkan metrik unggulan mereka (0 Krisis, Permanent Tech terbanyak, Koin terbanyak,
+    atau pilar skor tertinggi ENV / E / M / QoL). Dikembalikan berindeks rank (1..4).
+    """
+    awards_by_rank: Dict[int, Dict[str, str]] = {}
+    assigned_ranks = set()
+    used_titles = set()
+
+    def _p_rank(p: Dict[str, Any], fallback_idx: int) -> int:
+        return int(p.get("rank", fallback_idx + 1))
+
+    # 1. Pionir Teknologi (Permanent Tech T1-T5 terbanyak, jika > 0)
+    tech_cands = [
+        (idx, p)
+        for idx, p in enumerate(ranked_players)
+        if _p_rank(p, idx) not in assigned_ranks and int(p.get("tech_count", 0)) > 0
+    ]
+    if tech_cands:
+        idx_t, p_t = max(
+            tech_cands,
+            key=lambda it: (int(it[1].get("tech_count", 0)), float(it[1].get("avg_score", 0.0))),
+        )
+        r_t = _p_rank(p_t, idx_t)
+        awards_by_rank[r_t] = {
+            "title": "🔬 Pionir Teknologi",
+            "detail": f"{int(p_t.get('tech_count', 0))} Permanent Tech",
+            "bg": "#E0F2FE",
+            "border": "#0284C7",
+            "color": "#0369A1",
+        }
+        assigned_ranks.add(r_t)
+        used_titles.add("🔬 Pionir Teknologi")
+
+    # 2. Bendahara Kota (sisa koin terbanyak di antara yang belum mendapat gelar)
+    coin_cands = [
+        (idx, p)
+        for idx, p in enumerate(ranked_players)
+        if _p_rank(p, idx) not in assigned_ranks
+    ]
+    if coin_cands:
+        idx_c, p_c = max(
+            coin_cands,
+            key=lambda it: (int(it[1].get("coins", 0)), float(it[1].get("avg_score", 0.0))),
+        )
+        r_c = _p_rank(p_c, idx_c)
+        awards_by_rank[r_c] = {
+            "title": "🪙 Bendahara Kota",
+            "detail": f"{int(p_c.get('coins', 0))} Koin",
+            "bg": "#FEF3C7",
+            "border": "#D97706",
+            "color": "#92400E",
+        }
+        assigned_ranks.add(r_c)
+        used_titles.add("🪙 Bendahara Kota")
+
+    # 3. Arsitek Tanpa Krisis (0 Problem Card gagal di antara yang tersisa)
+    safe_cands = [
+        (idx, p)
+        for idx, p in enumerate(ranked_players)
+        if _p_rank(p, idx) not in assigned_ranks and int(p.get("problem_count", 0)) == 0
+    ]
+    if safe_cands:
+        idx_s, p_s = max(
+            safe_cands,
+            key=lambda it: (float(it[1].get("avg_score", 0.0)), int(it[1].get("project_count", 0))),
+        )
+        r_s = _p_rank(p_s, idx_s)
+        awards_by_rank[r_s] = {
+            "title": "🛡️ Arsitek Tanpa Krisis",
+            "detail": "0 Problem Card",
+            "bg": "#DCFCE7",
+            "border": "#16A34A",
+            "color": "#15803D",
+        }
+        assigned_ranks.add(r_s)
+        used_titles.add("🛡️ Arsitek Tanpa Krisis")
+
+    # 4. Pilar Skor Tertinggi untuk pemain yang tersisa (atau semua jika belum kebagian)
+    pillar_award_meta = [
+        ("ENV", "🌿 Penjaga Biosfer", "#DCFCE7", "#16A34A", "#15803D"),
+        ("E", "⚡ Maestro Energi", "#FEF9C3", "#EAB308", "#A16207"),
+        ("M", "🚝 Arsitek Transit", "#E0F2FE", "#0284C7", "#0369A1"),
+        ("QoL", "🏥 Wali Kota Humanis", "#FCE7F3", "#EC4899", "#BE185D"),
+    ]
+    for idx, p_rem in enumerate(ranked_players):
+        r_rem = _p_rank(p_rem, idx)
+        if r_rem in assigned_ranks:
+            continue
+        best_choices = sorted(
+            pillar_award_meta,
+            key=lambda m: int(p_rem.get(m[0], 0)),
+            reverse=True,
+        )
+        chosen = next((m for m in best_choices if m[1] not in used_titles), best_choices[0])
+        p_key, p_title, p_bg, p_bdr, p_col = chosen
+        awards_by_rank[r_rem] = {
+            "title": p_title,
+            "detail": f"{p_key}: {int(p_rem.get(p_key, 0))}/100",
+            "bg": p_bg,
+            "border": p_bdr,
+            "color": p_col,
+        }
+        assigned_ranks.add(r_rem)
+        used_titles.add(p_title)
+
+    return awards_by_rank
