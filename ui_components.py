@@ -90,6 +90,11 @@ try:
 except ImportError:
     go = None
 
+try:
+    from fpdf import FPDF
+except ImportError:
+    FPDF = None
+
 
 project_id_options = list(PROJECT_BY_ID.keys())
 tech_code_options = list(PERMANENT_TECH_BY_CODE.keys())
@@ -272,6 +277,243 @@ def icon_img_html(filename: str, size: int = 18, alt: str = "", mr: int = 4) -> 
         f'<img src="{uri}" alt="{html.escape(alt)}" '
         f'style="width:{size}px;height:{size}px;object-fit:contain;vertical-align:middle;flex-shrink:0;{margin_css}" />'
     )
+
+
+def _sanitize_pdf_text(raw_text: Any) -> str:
+    """Membersihkan format markdown & karakter non-Latin-1 agar aman dirender font standar fpdf2."""
+    txt = str(raw_text or "")
+    txt = re.sub(r"\*\*(.+?)\*\*", r"\1", txt)
+    txt = re.sub(r"(?<!\S)\*([^*\n]+?)\*(?!\S)", r"\1", txt)
+    replacements = {
+        "→": "->",
+        "➔": "->",
+        "➡": "->",
+        "←": "<-",
+        "·": "-",
+        "•": "-",
+        "—": "-",
+        "–": "-",
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+        "≥": ">=",
+        "≤": "<=",
+        "×": "x",
+        "…": "...",
+    }
+    for src, dst in replacements.items():
+        txt = txt.replace(src, dst)
+    txt = txt.encode("latin-1", "ignore").decode("latin-1")
+    txt = re.sub(r"[ \t]{2,}", " ", txt)
+    return txt.strip()
+
+
+def generate_certificate_pdf_bytes(
+    p_res: Dict[str, Any],
+    total_players: int = 4,
+    nar: Optional[Dict[str, Any]] = None,
+) -> Optional[bytes]:
+    """
+    Menghasilkan sertifikat resmi EcoNova 2075 ukuran A4 siap cetak dalam bentuk bytes PDF
+    menggunakan fpdf2 murni (mengembalikan None jika fpdf2 belum terpasang).
+    """
+    if FPDF is None:
+        return None
+
+    if nar is None:
+        nar = generate_llm_enhanced_narrative(p_res)
+
+    arch = p_res["archetype"]
+    tiers = arch.get("tiers", {})
+    cert_grade = get_overall_rating_grade(float(p_res.get("avg_score", 0.0)))
+
+    city_safe = _sanitize_pdf_text(p_res.get("city_name", "Kota EcoNova"))
+    mayor_safe = _sanitize_pdf_text(p_res.get("player_name", "Wali Kota"))
+    arch_name = _sanitize_pdf_text(arch.get("name", "-"))
+    arch_tagline = _sanitize_pdf_text(arch.get("tagline", ""))
+    arch_reason = _sanitize_pdf_text(arch.get("reason", ""))
+    rank_num = int(p_res.get("rank", 1))
+    avg_score = float(p_res.get("avg_score", 0.0))
+    coins_val = int(p_res.get("coins", 0))
+    grade_val = _sanitize_pdf_text(cert_grade.get("grade", "-"))
+    grade_lbl = _sanitize_pdf_text(cert_grade.get("label", ""))
+
+    class _EcoNovaCertPDF(FPDF):
+        def header(self) -> None:
+            # Latar kertas krem hangat & bingkai ganda hijau hutan + emas
+            self.set_fill_color(255, 253, 247)
+            self.rect(0, 0, 210, 297, style="F")
+            self.set_draw_color(22, 78, 51)
+            self.set_line_width(1.2)
+            self.rect(7, 7, 196, 283)
+            self.set_draw_color(217, 119, 6)
+            self.set_line_width(0.55)
+            self.rect(9.5, 9.5, 191, 278)
+            self.set_line_width(0.25)
+            self.rect(11, 11, 188, 275)
+
+        def footer(self) -> None:
+            self.set_y(-16)
+            self.set_font("Helvetica", "I", 7.5)
+            self.set_text_color(62, 91, 76)
+            self.cell(
+                0,
+                5,
+                _sanitize_pdf_text(
+                    f"Dokumen Resmi EcoNova: Sustainable City Planner & AI Auditor - Rulebook v1.0 | Hal. {self.page_no()}"
+                ),
+                align="C",
+            )
+
+    pdf = _EcoNovaCertPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(15, 15, 15)
+    pdf.set_auto_page_break(auto=True, margin=19)
+    pdf.add_page()
+
+    # Header lencana resmi
+    pdf.set_fill_color(22, 78, 51)
+    pdf.set_draw_color(217, 119, 6)
+    pdf.set_line_width(0.6)
+    pdf.rect(15, 15, 180, 11, style="DF")
+    pdf.set_xy(15, 16.5)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(255, 253, 247)
+    pdf.cell(180, 8, "ECONOVA - AKREDITASI RESMI TATA KOTA 2075", align="C")
+
+    pdf.set_xy(15, 28.5)
+    pdf.set_font("Helvetica", "B", 9.5)
+    pdf.set_text_color(180, 83, 9)
+    pdf.cell(
+        180,
+        5.5,
+        f"PERINGKAT #{rank_num} DARI {int(total_players)} KOTA  |  GRADE {grade_val} ({grade_lbl})",
+        align="C",
+    )
+
+    # Identitas Kota & Kotak Ringkasan Skor Akhir
+    top_y = 37.0
+    pdf.set_fill_color(255, 255, 255)
+    pdf.set_draw_color(22, 78, 51)
+    pdf.set_line_width(0.45)
+    pdf.rect(131, top_y, 64, 29, style="DF")
+
+    pdf.set_xy(131, top_y + 2.5)
+    pdf.set_font("Helvetica", "B", 7.5)
+    pdf.set_text_color(62, 91, 76)
+    pdf.cell(64, 4, "SKOR RATA-RATA AKHIR", align="C")
+
+    pdf.set_xy(131, top_y + 7.5)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(22, 78, 51)
+    pdf.cell(64, 8, f"{avg_score:.2f} / 100", align="C")
+
+    pdf.set_xy(131, top_y + 17.5)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(180, 83, 9)
+    pdf.cell(64, 4.5, f"Grade {grade_val}  |  Kas: {coins_val} Koin", align="C")
+
+    pdf.set_xy(131, top_y + 22.5)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(62, 91, 76)
+    pdf.cell(
+        64,
+        4,
+        f"Proyek: {int(p_res.get('project_count', 0))}  |  Tech: {int(p_res.get('tech_count', 0))}",
+        align="C",
+    )
+
+    pdf.set_xy(15, top_y)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(22, 78, 51)
+    pdf.multi_cell(112, 7.5, city_safe)
+
+    pdf.set_x(15)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(62, 91, 76)
+    pdf.multi_cell(112, 5, f"Wali Kota: {mayor_safe}")
+
+    pdf.set_x(15)
+    pdf.set_font("Helvetica", "B", 9.5)
+    pdf.set_text_color(22, 78, 51)
+    pdf.multi_cell(112, 5, f"Archetype: {arch_name}")
+
+    if arch_tagline:
+        pdf.set_x(15)
+        pdf.set_font("Helvetica", "I", 8.2)
+        pdf.set_text_color(71, 102, 86)
+        pdf.multi_cell(112, 4.2, f'"{arch_tagline}"')
+
+    # Tabel 4 Pilar Kota
+    table_y = max(pdf.get_y() + 4.0, top_y + 32.0)
+    pdf.set_y(table_y)
+    pillar_defs = [
+        ("Mobility (M)", int(p_res.get("M", 0)), tiers.get("Mobility", {}).get("tier", "-")),
+        ("Energy (E)", int(p_res.get("E", 0)), tiers.get("Energy", {}).get("tier", "-")),
+        ("Environment (ENV)", int(p_res.get("ENV", 0)), tiers.get("Environment", {}).get("tier", "-")),
+        ("Quality of Life (QoL)", int(p_res.get("QoL", 0)), tiers.get("Quality of Life", {}).get("tier", "-")),
+    ]
+    col_w = 45.0
+    pdf.set_x(15)
+    pdf.set_fill_color(22, 78, 51)
+    pdf.set_text_color(255, 253, 247)
+    pdf.set_draw_color(22, 78, 51)
+    pdf.set_font("Helvetica", "B", 8.2)
+    for p_title, _, _ in pillar_defs:
+        pdf.cell(col_w, 7, p_title, border=1, align="C", fill=True)
+    pdf.ln()
+
+    pdf.set_x(15)
+    pdf.set_fill_color(247, 244, 232)
+    pdf.set_text_color(22, 78, 51)
+    pdf.set_font("Helvetica", "B", 11)
+    for _, p_val, _ in pillar_defs:
+        pdf.cell(col_w, 6.5, f"{p_val} / 100", border="LTR", align="C", fill=True)
+    pdf.ln()
+
+    pdf.set_x(15)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(62, 91, 76)
+    for _, _, p_tier in pillar_defs:
+        pdf.cell(col_w, 5, _sanitize_pdf_text(p_tier), border="LBR", align="C", fill=True)
+    pdf.ln(7.5)
+
+    # Blok Dasar Klasifikasi AI Auditor
+    reason_line = _sanitize_pdf_text(f"Dasar Klasifikasi AI Auditor: {arch_reason}")
+    pdf.set_x(15)
+    pdf.set_fill_color(240, 253, 244)
+    pdf.set_draw_color(167, 223, 190)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(22, 78, 51)
+    pdf.multi_cell(180, 4.6, reason_line, border=1, fill=True)
+    pdf.ln(3.5)
+
+    # 4 Bagian Narasi Audit Lengkap
+    narrative_blocks = [
+        ("Kekuatan Infrastruktur Kota", nar.get("strengths", ""), (21, 128, 61)),
+        ("Evaluasi Krisis & Mitigasi Risiko", nar.get("challenges", ""), (180, 83, 9)),
+        ("Visi Tata Kota Masa Depan (Tahun 2075)", nar.get("future_simulation", ""), (2, 132, 199)),
+        ("Rekomendasi Tata Ruang Terpadu", nar.get("recommendations", ""), (22, 78, 51)),
+    ]
+    for sec_title, sec_body, (cr, cg, cb) in narrative_blocks:
+        if pdf.get_y() > 260:
+            pdf.add_page()
+            pdf.set_y(16)
+        pdf.set_x(15)
+        pdf.set_fill_color(cr, cg, cb)
+        pdf.set_text_color(255, 253, 247)
+        pdf.set_font("Helvetica", "B", 8.8)
+        pdf.cell(180, 6, f"  {_sanitize_pdf_text(sec_title)}", fill=True, new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_x(15)
+        pdf.set_fill_color(255, 255, 255)
+        pdf.set_draw_color(207, 226, 212)
+        pdf.set_text_color(30, 58, 43)
+        pdf.set_font("Helvetica", "", 8.4)
+        pdf.multi_cell(180, 4.4, _sanitize_pdf_text(sec_body), border="LBR", fill=True)
+        pdf.ln(2.6)
+
+    return bytes(pdf.output())
 
 
 def _format_nar_html(md_text: str) -> str:
@@ -1329,7 +1571,7 @@ def render_tab_tracker() -> None:
             p_txt = ptheme.get("text", "#15803D")
             proj_tag_css_rules.append(
                 f"""
-                div[data-testid="stExpander"] div[class*="st-key-wrap_proj_sec_{dp_id}"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"]:nth-of-type({t_idx}),
+                div[data-testid="stExpander"] div[class*="st-key-wrap_proj_sec_{dp_id}"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] span[data-baseweb="tag"]:nth-of-type({t_idx}),
                 div[data-testid="stExpander"] div[class*="st-key-wrap_proj_sec_{dp_id}"] div[data-testid="stMultiSelect"] [data-baseweb="tag"]:nth-of-type({t_idx}) {{
                     background-color: {p_bg} !important;
                     border: 1.5px solid {p_bdr} !important;
@@ -1530,12 +1772,13 @@ def render_tab_tracker() -> None:
 
                 if active_event_id and active_event_id in EVENT_BY_ID:
                     ev_mod = live_audit.get("live_event_modifier", {"M": 0, "E": 0, "ENV": 0, "QoL": 0})
-                    if any(ev_mod.values()):
+                    ev_parts = [f"{k}:{ev_mod[k]:+d}" for k in ("M", "E", "ENV", "QoL") if int(ev_mod.get(k, 0)) != 0]
+                    if ev_parts:
                         ev_name = EVENT_BY_ID[active_event_id]["name"]
                         render_html(
                             f"""
                             <div style="font-size:0.72rem;color:#0284C7;background:rgba(2,132,199,0.1);border:1px solid rgba(2,132,199,0.3);border-radius:8px;padding:4px 8px;margin-top:4px;">
-                              <b>Event Live ({ev_name}):</b> M:{ev_mod['M']:+d} | E:{ev_mod['E']:+d} | ENV:{ev_mod['ENV']:+d} | QoL:{ev_mod['QoL']:+d}
+                              <b>Event Live ({html.escape(ev_name)}):</b> {" | ".join(ev_parts)}
                             </div>
                             """
                         )
@@ -2353,7 +2596,7 @@ def render_tab_audit() -> None:
                 st.caption("Profil keseimbangan Mobility, Energy, Environment, dan Quality of Life.")
 
                 if go is not None:
-                    categories = ["Mobility (M)", "Energy (E)", "Environment (ENV)", "Quality of Life (QoL)"]
+                    categories = ["Mobility (M)", "Energy (E)", "Env. (ENV)", "QoL"]
                     radar_colors = ["#D97706", "#0284C7", "#16A34A", "#E11D48"]
                     radar_dashes = ["solid", "dash", "dot", "dashdot"]
                     fig = go.Figure()
@@ -2377,28 +2620,29 @@ def render_tab_audit() -> None:
                         )
                     fig.update_layout(
                         polar=dict(
+                            domain=dict(x=[0.12, 0.88], y=[0.22, 0.92]),
                             radialaxis=dict(
                                 visible=True,
                                 range=[0, 100],
                                 gridcolor="#CBE3D4",
                                 linecolor="#B7D5C4",
-                                tickfont=dict(size=10, color="#3E5B4C"),
+                                tickfont=dict(size=8, color="#3E5B4C"),
                             ),
                             angularaxis=dict(
                                 gridcolor="#CBE3D4",
                                 linecolor="#B7D5C4",
-                                tickfont=dict(size=11, color="#164E33", family="Plus Jakarta Sans"),
+                                tickfont=dict(size=10, color="#164E33", family="Plus Jakarta Sans"),
                             ),
                             bgcolor="#FFFDF7",
                         ),
                         showlegend=True,
-                        legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5),
-                        margin=dict(l=35, r=35, t=22, b=42),
+                        legend=dict(orientation="h", yanchor="top", y=-0.06, xanchor="center", x=0.5, font=dict(size=10)),
+                        margin=dict(l=32, r=32, t=22, b=68),
                         paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(0,0,0,0)",
-                        height=330,
+                        height=350,
                     )
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         # ----------------------------------------------------------------------
         # GRAFIK BALAPAN SKOR ANTAR-RONDE (ROUND-BY-ROUND PROGRESSION CHART)
@@ -2455,15 +2699,15 @@ def render_tab_audit() -> None:
                     max_y = min(100, max_y + 5)
 
                 prog_fig.update_layout(
-                    xaxis=dict(title="Ronde", gridcolor="#E2ECE5", linecolor="#B7D5C4"),
+                    xaxis=dict(title=None, tickfont=dict(size=9), gridcolor="#E2ECE5", linecolor="#B7D5C4"),
                     yaxis=dict(title="Average Score", range=[min_y, max_y], gridcolor="#E2ECE5", linecolor="#B7D5C4"),
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="#FFFDF7",
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.30, xanchor="center", x=0.5),
-                    margin=dict(l=40, r=24, t=16, b=45),
-                    height=310,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="center", x=0.5, font=dict(size=9.5)),
+                    margin=dict(l=36, r=16, t=48, b=32),
+                    height=320,
                 )
-                st.plotly_chart(prog_fig, width="stretch")
+                st.plotly_chart(prog_fig, width="stretch", config={"displayModeBar": False})
 
         # ----------------------------------------------------------------------
         # SERTIFIKAT DIPLOMA TATA KOTA MASA DEPAN (TAHUN 2075)
@@ -2550,7 +2794,7 @@ def render_tab_audit() -> None:
                     render_html(
                         f"""
                         <div class="cert-diploma">
-                          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+                          <div class="cert-header-row" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
                             <div>
                               {cert_kop_html}
                               {champ_banner}
@@ -2568,7 +2812,7 @@ def render_tab_audit() -> None:
                                 "{arch['tagline']}"
                               </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:14px;background:#FFFDF7;border:2px solid {arch['color']};border-radius:18px;padding:16px 22px;box-shadow:0 5px 0 rgba(22,78,51,0.14);">
+                            <div class="cert-score-card" style="display:flex;align-items:center;gap:14px;background:#FFFDF7;border:2px solid {arch['color']};border-radius:18px;padding:16px 22px;box-shadow:0 5px 0 rgba(22,78,51,0.14);">
                               <div style="text-align:center;">
                                 <div style="font-family:'Outfit',sans-serif;font-size:0.72rem;color:#3E5B4C;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;line-height:1.25;margin-bottom:2px;">Skor Rata-Rata Akhir</div>
                                 <div class="stat-outfit" style="font-size:2.4rem;font-weight:900;color:{arch['color']};line-height:1.05;margin:4px 0;">{p_res['avg_score']:.2f}</div>
@@ -2629,21 +2873,53 @@ def render_tab_audit() -> None:
                             render_html(f'<div class="diag-card-hdr" style="color:#164E33;">{icon_img_html("icon_clipboard.png", 22, "Rekomendasi", 0)}<span>Rekomendasi Tata Ruang Terpadu</span></div>')
                             st.markdown(nar["recommendations"])
 
-                    cert_download_html = build_certificate_download_html(
-                        p_res=p_res,
-                        nar=nar,
-                        cert_grade=cert_grade,
-                        logo_uri=logo_uri,
-                        seal_uri=seal_uri,
+                    pid_key = p_res.get("player_id", r_idx + 1)
+                    use_groq_ai = bool(st.session_state.get("use_llm_narrative", False))
+                    pdf_cache_key = f"cert_pdf_{pid_key}_{use_groq_ai}"
+                    pdf_sig_key = f"{pdf_cache_key}_sig"
+                    current_pdf_sig = (
+                        round(float(p_res.get("avg_score", 0.0)), 2),
+                        int(p_res.get("M", 0)),
+                        int(p_res.get("E", 0)),
+                        int(p_res.get("ENV", 0)),
+                        int(p_res.get("QoL", 0)),
+                        int(p_res.get("coins", 0)),
+                        int(p_res.get("rank", 1)),
+                        str(p_res.get("city_name", "")),
+                        str(p_res.get("player_name", "")),
+                        bool(use_auto_13),
                     )
-                    st.download_button(
-                        label="📥 Unduh Sertifikat Akreditasi Kota 2075 (.html)",
-                        data=cert_download_html.encode("utf-8"),
-                        file_name=f"Sertifikat_EcoNova_2075_{p_res['city_name'].replace(' ', '_')}.html",
-                        mime="text/html",
-                        key=f"btn_dl_cert_{r_idx}_{p_res.get('player_id', r_idx)}",
-                        width="stretch",
-                    )
+                    if st.session_state.get(pdf_sig_key) != current_pdf_sig:
+                        st.session_state.pop(pdf_cache_key, None)
+
+                    cached_pdf_bytes = st.session_state.get(pdf_cache_key)
+                    if cached_pdf_bytes is None:
+                        if st.button(
+                            "📄 Siapkan Sertifikat PDF 2075",
+                            key=f"btn_prep_pdf_{pid_key}",
+                            width="stretch",
+                        ):
+                            with st.spinner("Menyusun sertifikat PDF..."):
+                                generated_pdf = generate_certificate_pdf_bytes(
+                                    p_res=p_res,
+                                    total_players=len(ranked_players),
+                                    nar=nar,
+                                )
+                            if generated_pdf is None:
+                                st.warning("Pustaka fpdf2 belum terpasang. Jalankan: pip install fpdf2")
+                            else:
+                                st.session_state[pdf_cache_key] = generated_pdf
+                                st.session_state[pdf_sig_key] = current_pdf_sig
+                                st.rerun()
+                    else:
+                        st.download_button(
+                            label="📥 Unduh Sertifikat Akreditasi Kota 2075 (.pdf)",
+                            data=cached_pdf_bytes,
+                            file_name=f"Sertifikat_EcoNova_2075_{p_res['city_name'].replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            key=f"btn_dl_cert_{r_idx}_{pid_key}",
+                            width="stretch",
+                        )
 
 
 # ==============================================================================
@@ -2729,6 +3005,44 @@ def render_tab_game_master() -> None:
                 quick_q = "Gimana aturan pakai 3 Action Points (AP) dan bonus City Center?"
             if qc6.button("Solusi Krisis?", width="stretch", key="qp_strat"):
                 quick_q = "Gimana cara beresin Problem Card pakai koin vs kombinasi Tech/Skill?"
+
+            if st.button("📊 Analisis Skor Saat Ini", width="stretch", type="primary", key="qp_analyze_board"):
+                curr_r_gm = int(st.session_state.get("current_round", 1))
+                ev_gm = st.session_state.get("selected_event_id")
+                gm_players = st.session_state.get("players", {})
+                summary_lines: List[str] = []
+                for gm_pid in range(1, 5):
+                    gm_pl = gm_players.get(gm_pid, {})
+                    gm_res = compute_player_score(
+                        player_name=gm_pl.get("name", f"Pemain {gm_pid}"),
+                        city_name=gm_pl.get("city", f"Kota {gm_pid}"),
+                        project_ids=gm_pl.get("projects", []),
+                        tech_codes=gm_pl.get("techs", []),
+                        failed_problem_ids=gm_pl.get("problems", []),
+                        coins=int(gm_pl.get("coins", 5)),
+                        used_skill_codes=gm_pl.get("skills", []),
+                        include_events=False,
+                        active_event_id=ev_gm,
+                        skill_bonus=gm_pl.get("bonus_stats", {}),
+                        active_tech_codes=gm_pl.get("active_techs_this_round", []),
+                        accumulated_event_delta=gm_pl.get("accumulated_event_delta", {}),
+                        accumulated_event_coins=0,
+                        is_immune=bool(gm_pl.get("immune_this_round", False)),
+                        manual_delta=gm_pl.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+                        accumulated_tech_stats=gm_pl.get("accumulated_tech_stats", {"M": 0, "E": 0, "ENV": 0, "QoL": 0}),
+                    )
+                    probs_str = ", ".join(gm_pl.get("problems", [])) or "0 Krisis"
+                    summary_lines.append(
+                        f"- P{gm_pid} {gm_pl.get('city', f'Kota {gm_pid}')} ({gm_pl.get('name', f'Pemain {gm_pid}')}): "
+                        f"Avg {gm_res['avg_score']:.2f} (M:{gm_res['M']}, E:{gm_res['E']}, ENV:{gm_res['ENV']}, QoL:{gm_res['QoL']}), "
+                        f"{len(gm_pl.get('projects', []))} Proyek, {gm_pl.get('coins', 0)} Koin, Krisis: [{probs_str}]"
+                    )
+                ev_note = EVENT_BY_ID[ev_gm]["name"] if ev_gm and ev_gm in EVENT_BY_ID else "Belum ada Event"
+                quick_q = (
+                    f"Analisis strategi meja EcoNova Ronde {curr_r_gm}/13 (Event: {ev_note}) untuk kondisi keempat kota saat ini:\n"
+                    + "\n".join(summary_lines)
+                    + "\nKasih saran strategi singkat paling prioritas untuk tiap kota!"
+                )
 
             st.markdown("---")
             render_html(

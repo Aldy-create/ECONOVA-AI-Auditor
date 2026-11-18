@@ -227,8 +227,16 @@ def callback_switch_tab(tab_name: str) -> None:
         st.session_state.active_tab = tab_name
 
 
+def clear_certificate_pdf_cache() -> None:
+    """Menghapus cache sertifikat PDF 2075 di session_state agar selalu sinkron dengan skor terbaru."""
+    stale_keys = [k for k in list(st.session_state.keys()) if str(k).startswith("cert_pdf_")]
+    for k in stale_keys:
+        st.session_state.pop(k, None)
+
+
 def callback_lock_and_open_audit() -> None:
     """Mengunci simulasi dari Tab 1 dan langsung otomatis berpindah ke Tab 2: Final Audit."""
+    clear_certificate_pdf_cache()
     st.session_state.audit_triggered = True
     st.session_state.active_tab = "Tab 2: Final Audit"
 
@@ -764,6 +772,7 @@ def callback_prev_round() -> None:
 
 def callback_load_demo_simulation() -> None:
     """Mengisi skenario simulasi realistis Ronde 11 untuk keperluan demo & presentasi juri."""
+    clear_certificate_pdf_cache()
     demo_players = {
         1: {
             "name": "Alya",
@@ -868,6 +877,7 @@ def callback_load_demo_simulation() -> None:
 
 
 def callback_reset_game() -> None:
+    clear_certificate_pdf_cache()
     st.session_state.active_tab = "Tab 1: Live Tracker"
     st.session_state.current_round = 1
     st.session_state.used_events = []
@@ -1203,6 +1213,7 @@ def import_session_json(raw_json: str) -> Tuple[bool, str]:
     st.session_state.active_player_id = act_pid
     st.session_state.players = restored_players
     st.session_state.audit_triggered = False
+    clear_certificate_pdf_cache()
     st.session_state.action_history = []
     st.session_state.last_deltas = {p_id: {} for p_id in range(1, 5)}
     st.session_state.quick_district_filter = None

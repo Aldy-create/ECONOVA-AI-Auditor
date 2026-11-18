@@ -300,6 +300,44 @@ div[class*="st-key-panel_"]:hover,
     border-radius: 999px;
 }
 
+@media (max-width: 640px) {
+    #MainMenu,
+    [data-testid="stAppDeployButton"],
+    header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
+        display: none !important;
+    }
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
+    .cert-diploma {
+        padding: 14px 12px !important;
+    }
+    .cert-header-row {
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+    }
+    .cert-score-card {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        justify-content: space-between !important;
+        padding: 12px 14px !important;
+        flex-wrap: wrap !important;
+    }
+    .cert-diploma .pillar-grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+    .cert-diploma .pillar-tile {
+        padding: 10px 6px !important;
+    }
+    .cert-diploma .pillar-tile-title {
+        font-size: 0.66rem !important;
+        letter-spacing: 0.01em !important;
+        word-break: normal !important;
+        white-space: nowrap !important;
+    }
+}
+
 /* Diagnostic Narrative Cards (Tab 2) */
 .diag-card {
     background: #FFFDF7;
@@ -910,14 +948,17 @@ div[class*="st-key-wrap_coin_sec"] div[data-testid="stNumberInputContainer"] inp
 }
 
 /* Multiselect Tags per Kategori (Pastel Pill Kontras Tinggi + Anti-Clip Kotak Pilihan) */
-div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div,
+div[data-testid="stExpander"] div[data-baseweb="select"] > div {
+    min-height: unset !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 6px 8px 10px 8px !important;
-    min-height: 40px !important;
+    padding: 6px 8px 12px 8px !important;
 }
-div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div > div {
+div[data-testid="stExpander"] div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div > div,
+div[data-testid="stExpander"] div[data-baseweb="select"] > div > div {
+    min-height: unset !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
@@ -930,6 +971,7 @@ span[data-baseweb="tag"],
     border-radius: 8px !important;
     font-weight: 700 !important;
 }
+div[data-testid="stExpander"] div[class*="st-key-wrap_proj_"] div[data-baseweb="select"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_proj_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_proj_"] span[data-baseweb="tag"],
 div[class*="st-key-wrap_proj_"] span[data-baseweb="tag"] {
@@ -937,6 +979,7 @@ div[class*="st-key-wrap_proj_"] span[data-baseweb="tag"] {
     border: 1.5px solid #22C55E !important;
     color: #14532D !important;
 }
+div[data-testid="stExpander"] div[class*="st-key-wrap_tech_"] div[data-baseweb="select"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_tech_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_tech_"] span[data-baseweb="tag"],
 div[class*="st-key-wrap_tech_"] span[data-baseweb="tag"] {
@@ -944,6 +987,7 @@ div[class*="st-key-wrap_tech_"] span[data-baseweb="tag"] {
     border: 1.5px solid #0284C7 !important;
     color: #075985 !important;
 }
+div[data-testid="stExpander"] div[class*="st-key-wrap_skill_"] div[data-baseweb="select"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_skill_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_skill_"] span[data-baseweb="tag"],
 div[class*="st-key-wrap_skill_"] span[data-baseweb="tag"] {
@@ -951,6 +995,7 @@ div[class*="st-key-wrap_skill_"] span[data-baseweb="tag"] {
     border: 1.5px solid #F59E0B !important;
     color: #92400E !important;
 }
+div[data-testid="stExpander"] div[class*="st-key-wrap_prob_"] div[data-baseweb="select"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_prob_"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"],
 div[data-testid="stExpander"] div[class*="st-key-wrap_prob_"] span[data-baseweb="tag"],
 div[class*="st-key-wrap_prob_"] span[data-baseweb="tag"] {
@@ -958,6 +1003,7 @@ div[class*="st-key-wrap_prob_"] span[data-baseweb="tag"] {
     border: 1.5px solid #F43F5E !important;
     color: #9F1239 !important;
 }
+div[data-testid="stExpander"] div[data-baseweb="select"] span[data-baseweb="tag"] *,
 div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] *,
 div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] span,
 div[data-testid="stExpander"] div[data-testid="stMultiSelect"] span[data-baseweb="tag"] svg,
