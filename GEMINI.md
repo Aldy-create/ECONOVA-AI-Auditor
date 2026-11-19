@@ -57,7 +57,7 @@ Aplikasi dipisahkan menjadi modul-modul berfokus tunggal agar mudah dipelihara d
    - Dashboard **tidak** merender pelacak atau pengurang AP; pengelolaan AP dilakukan secara fisik di papan meja.
 2. **Permanent Tech Card (`T1–T5`):**
    - Kartu `T1–T5` yang dimiliki pemain bersifat permanen dan **tetap berada di area pemain** sepanjang permainan (tidak pernah terhapus saat diaktifkan maupun saat menyelesaikan Problem Card).
-   - Tiap ronde, pemain dapat mengaktifkan tombol aksi `T1–T5` miliknya maksimal **1x per ronde** (status direset otomatis saat menekan `Next Ronde ➡️`).
+   - Tiap ronde, pemain dapat mengaktifkan tombol aksi `T1–T5` miliknya maksimal **1x per salinan kartu per ronde** (status direset otomatis saat menekan `Next Ronde ➡️`).
 3. **Penyelesaian Problem Card (`PR01–PR20`) & Validasi Kombinasi (`+`):**
    - Resolusi via Tech memeriksa seluruh syarat kombinasi bersamaan sesuai Rulebook Bab IX melalui `PROBLEM_SOLUTION_RULES` & `get_resolvable_problems_for_tech()`:
      - `PR01`: `T3` atau `S2` | `PR02`: `T2` atau `S3` | `PR03`: `T1` | `PR04`: `T5` | `PR05`: `T5`
@@ -65,8 +65,11 @@ Aplikasi dipisahkan menjadi modul-modul berfokus tunggal agar mudah dipelihara d
      - `PR11`: **`T1 + T3`** atau `S2` | `PR12`: Bayar Koin | `PR13`: `T5` | `PR14`: Bayar Koin | `PR15`: `T3`
      - `PR16`: **`T2 + T3`** | `PR17`: `T1` | `PR18`: `T3` | `PR19`: `T2` atau `S1` | `PR20`: **`T1 + T3 + T5`**
    - Note: `T4` hanya menyelesaikan `PR09`.
-4. **Consumable Skill (`S1–S5`):**
-   - Sekali pakai: begitu tombol aksi dipakai (baik untuk efek langsung maupun mengamankan Problem Card yang sesuai), kartu Skill **langsung terhapus (`consumed`)** dari `pl["skills"]` dan `widget_skills_{p_id}`.
+4. **Consumable Skill (`S1–S5`) & Kepemilikan Kartu Ganda (*Duplicate / Stacking Cards*):**
+   - Sekali pakai per salinan: begitu tombol aksi Skill dipakai, **hanya 1 salinan** kartu Skill yang terhapus (`pl["skills"].remove(...)`), sehingga kepemilikan ganda (misal `2x S1`) tetap menyisakan `1x S1`.
+   - Seluruh dropdown pemilihan kartu (*Meja Aksi Kartu Cepat* dan pengelola `Kelola Kartu & Kas` via `_render_duplicate_card_inventory_section`) **selalu mempertahankan semua opsi kartu secara utuh** dan mengizinkan penambahan kartu ganda (*stacking*) pada `projects`, `techs`, `skills`, maupun `problems`.
+   - `callback_add_player_card()` dan `callback_remove_one_player_card()` mengelola penambahan/penghapusan **1 salinan per aksi**, sedangkan `callback_undo_last_action()` (termasuk `_remove_last_occurrence`) hanya membatalkan **1 salinan terakhir** tanpa menghapus salinan lain yang sudah ada.
+   - `compute_player_score()`, `evaluate_single_event_live()`, `evaluate_events_for_player()`, dan `recommend_cards_for_player()` menghitung seluruh salinan kartu secara kumulatif (termasuk bonus `EV11`/`EV12` per jumlah salinan `T2`/`T1`).
 5. **Event Pasar (`EV03` & `EV05`) & Validasi Meja Aksi Kartu Cepat:**
    - `EV03` memberi diskon `-2 Koin` Project Card Energy District; `EV05` memberi diskon `-2 Koin` Tech/Skill Card di City Center.
    - Meja Aksi Kartu Cepat menghitung `effective_cost` otomatis saat `EV03`/`EV05` aktif, memeriksa kecukupan syarat `tech_list` proyek terhadap `pl["techs"]` serta kecukupan kas koin efektif pemain target, sambil mempertahankan tombol `Terapkan` aktif sebagai override manual fasilitator.

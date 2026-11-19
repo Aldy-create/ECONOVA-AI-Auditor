@@ -399,14 +399,34 @@ def _record_action_entry(
         st.session_state.action_history = st.session_state.action_history[-40:]
 
 
+def _remove_last_occurrence(items: List[str], target_id: str) -> bool:
+    """Menghapus hanya 1 kemunculan terakhir target_id dari list agar salinan ganda lainnya tetap aman."""
+    for idx in range(len(items) - 1, -1, -1):
+        if items[idx] == target_id:
+            items.pop(idx)
+            return True
+    return False
+
+
 def callback_undo_last_action() -> None:
-    """Membatalkan aksi terakhir dari action_history dan memulihkan snapshot termasuk widget state."""
+    """Membatalkan aksi terakhir dari action_history (hapus hanya 1 salinan terakhir untuk kartu ganda)."""
     history = st.session_state.get("action_history", [])
     if not history:
         return
     last_entry = history.pop()
     snap = last_entry.get("snapshot", {})
+    clear_certificate_pdf_cache()
+
     if not snap:
+        pid = last_entry.get("player_id")
+        cid = last_entry.get("card_id")
+        cat = last_entry.get("category")
+        cat_to_key = {"Project": "projects", "Tech": "techs", "Skill": "skills", "Problem": "problems"}
+        lkey = cat_to_key.get(str(cat))
+        if pid in st.session_state.players and lkey and cid:
+            pl = st.session_state.players[pid]
+            if _remove_last_occurrence(pl[lkey], str(cid)):
+                st.session_state[f"widget_{lkey}_{pid}"] = list(pl[lkey])
         return
 
     st.session_state.current_round = int(snap.get("current_round", 1))
@@ -435,50 +455,105 @@ def callback_undo_last_action() -> None:
 
 
 def callback_apply_quick_card(p_id: int, category: str, card_id: Optional[str]) -> None:
-    """Menerapkan kartu dari panel aksi cepat terpadu ke pemain aktif serta mencatat log & delta."""
+    """Menerapkan kartu dari panel aksi cepat terpadu ke pemain aktif (mendukung kartu ganda/stacking)."""
     if not card_id or p_id not in st.session_state.players:
         return
     pl = st.session_state.players[p_id]
     curr_r = int(st.session_state.current_round)
     snap = _capture_undo_snapshot()
+    clear_certificate_pdf_cache()
 
     if category == "Project" and card_id in PROJECT_BY_ID:
-        if card_id in pl["projects"]:
-            return
         card = PROJECT_BY_ID[card_id]
         pl["projects"].append(card_id)
         st.session_state[f"widget_projects_{p_id}"] = list(pl["projects"])
         deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
-        pl["tech_log"].append(f"R{curr_r}: Bangun Proyek [{card_id}] {card['name']}")
+        cnt = pl["projects"].count(card_id)
+        pl["tech_log"].append(f"R{curr_r}: Bangun Proyek [{card_id}] {card['name']}" + (f" ({cnt}x)" if cnt > 1 else ""))
         _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Project", deltas, snap)
 
     elif category == "Tech" and card_id in PERMANENT_TECH_BY_CODE:
-        if card_id in pl["techs"]:
-            return
         card = PERMANENT_TECH_BY_CODE[card_id]
         pl["techs"].append(card_id)
         st.session_state[f"widget_techs_{p_id}"] = list(pl["techs"])
-        pl["tech_log"].append(f"R{curr_r}: Tambah Tech [{card_id}] {card['name']}")
+        cnt = pl["techs"].count(card_id)
+        pl["tech_log"].append(f"R{curr_r}: Tambah Tech [{card_id}] {card['name']}" + (f" ({cnt}x)" if cnt > 1 else ""))
         _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Tech", {}, snap)
 
     elif category == "Skill" and card_id in SKILL_BY_CODE:
-        if card_id in pl["skills"]:
-            return
         card = SKILL_BY_CODE[card_id]
         pl["skills"].append(card_id)
         st.session_state[f"widget_skills_{p_id}"] = list(pl["skills"])
-        pl["tech_log"].append(f"R{curr_r}: Tambah Skill [{card_id}] {card['name']}")
+        cnt = pl["skills"].count(card_id)
+        pl["tech_log"].append(f"R{curr_r}: Tambah Skill [{card_id}] {card['name']}" + (f" ({cnt}x)" if cnt > 1 else ""))
         _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Skill", {}, snap)
 
     elif category == "Problem" and card_id in PROBLEM_BY_ID:
-        if card_id in pl["problems"]:
-            return
         card = PROBLEM_BY_ID[card_id]
         pl["problems"].append(card_id)
         st.session_state[f"widget_problems_{p_id}"] = list(pl["problems"])
         deltas = {k: int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
-        pl["tech_log"].append(f"R{curr_r}: Catat Krisis [{card_id}] {card['name']}")
+        cnt = pl["problems"].count(card_id)
+        pl["tech_log"].append(f"R{curr_r}: Catat Krisis [{card_id}] {card['name']}" + (f" ({cnt}x)" if cnt > 1 else ""))
         _record_action_entry(curr_r, p_id, f"P{p_id} · {pl['city']}", card_id, card["name"], "Problem", deltas, snap)
+
+
+def callback_add_player_card(p_id: int, cat_key: str, card_id: Optional[str] = None) -> None:
+    """Menambahkan 1 salinan kartu pada panel Kelola Kartu & Kas (mendukung duplikat)."""
+    key_to_cat = {
+        "projects": "Project",
+        "techs": "Tech",
+        "skills": "Skill",
+        "problems": "Problem",
+    }
+    category = key_to_cat.get(cat_key)
+    if not category:
+        return
+    chosen_id = card_id or st.session_state.get(f"add_sel_{cat_key}_{p_id}")
+    if chosen_id:
+        callback_apply_quick_card(p_id, category, str(chosen_id))
+
+
+def callback_remove_one_player_card(p_id: int, cat_key: str, card_id: str) -> None:
+    """Menghapus hanya 1 salinan terakhir kartu tertentu dari pemain tanpa menghapus salinan lain."""
+    if p_id not in st.session_state.players or cat_key not in ("projects", "techs", "skills", "problems"):
+        return
+    pl = st.session_state.players[p_id]
+    if card_id not in pl[cat_key]:
+        return
+
+    snap = _capture_undo_snapshot()
+    clear_certificate_pdf_cache()
+    if not _remove_last_occurrence(pl[cat_key], card_id):
+        return
+    st.session_state[f"widget_{cat_key}_{p_id}"] = list(pl[cat_key])
+
+    curr_r = int(st.session_state.current_round)
+    cat_label_map = {
+        "projects": ("Project", PROJECT_BY_ID),
+        "techs": ("Tech", PERMANENT_TECH_BY_CODE),
+        "skills": ("Skill", SKILL_BY_CODE),
+        "problems": ("Problem", PROBLEM_BY_ID),
+    }
+    cat_name, lookup = cat_label_map[cat_key]
+    card = lookup.get(card_id, {})
+    c_name = card.get("name", card_id)
+    deltas = (
+        {k: -int(card.get(k, 0)) for k in ("M", "E", "ENV", "QoL")}
+        if cat_key in ("projects", "problems")
+        else {}
+    )
+    pl["tech_log"].append(f"R{curr_r}: Hapus 1x [{card_id}] {c_name}")
+    _record_action_entry(
+        curr_r,
+        p_id,
+        f"P{p_id} · {pl['city']}",
+        card_id,
+        f"Hapus 1x {c_name}",
+        cat_name,
+        deltas,
+        snap,
+    )
 
 
 def callback_sync_projects(p_id: int) -> None:
@@ -933,12 +1008,15 @@ def callback_activate_tech(p_id: int, t_code: str) -> None:
     if "tech_activations_this_round" not in pl:
         pl["tech_activations_this_round"] = []
 
-    if t_code in pl["active_techs_this_round"]:
+    owned_copies = max(1, pl["techs"].count(t_code))
+    used_copies = pl["active_techs_this_round"].count(t_code)
+    if used_copies >= owned_copies:
         return
 
     snap = _capture_undo_snapshot()
+    clear_certificate_pdf_cache()
     pl["active_techs_this_round"].append(t_code)
-    st.session_state.tech_used_this_round[p_id][t_code] = True
+    st.session_state.tech_used_this_round[p_id][t_code] = (used_copies + 1 >= owned_copies)
 
     tcard = PERMANENT_TECH_BY_CODE.get(t_code, {})
     t_delta = {

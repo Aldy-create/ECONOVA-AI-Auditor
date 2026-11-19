@@ -4802,15 +4802,19 @@ def evaluate_single_event_live(
             delta["ENV"] -= 2
             note = "Penalti cuaca ekstrem: -2 Environment (butuh T3 / T5)"
     elif eid == "EV11":
-        if "T2" in tech_set:
-            delta["QoL"] += 3
-            note = "Transformasi digital aktif: +3 QoL (T2 AI Urban System)"
+        t2_count = list(tech_codes or []).count("T2")
+        if t2_count > 0:
+            qol_gain = 3 * t2_count
+            delta["QoL"] += qol_gain
+            note = f"Transformasi digital aktif: +{qol_gain} QoL ({t2_count}x T2 AI Urban System)"
         else:
             note = "Tidak berlaku (belum memiliki T2 AI Urban System)"
     elif eid == "EV12":
-        if "T1" in tech_set:
-            delta["E"] += 3
-            note = "Revolusi energi bersih aktif: +3 Energy (T1 Solar Engineering)"
+        t1_count = list(tech_codes or []).count("T1")
+        if t1_count > 0:
+            e_gain = 3 * t1_count
+            delta["E"] += e_gain
+            note = f"Revolusi energi bersih aktif: +{e_gain} Energy ({t1_count}x T1 Solar Engineering)"
         else:
             note = "Tidak berlaku (belum memiliki T1 Solar Engineering)"
     elif eid == "EV13":
@@ -5252,18 +5256,20 @@ def evaluate_events_for_player(
             "detail": "Kerusakan cuaca ekstrem akibat minimnya mitigasi material & hidrologi (-2 ENV).",
         })
 
-    # EV11: Round 11 Digital Transformation (+3 QoL jika punya T2)
-    if "T2" in tech_set:
-        delta["QoL"] += 3
+    # EV11: Round 11 Digital Transformation (+3 QoL per salinan T2 yang dimiliki)
+    t2_count = list(tech_codes or []).count("T2")
+    if t2_count > 0:
+        qol_ev11 = 3 * t2_count
+        delta["QoL"] += qol_ev11
         events_log.append({
             "round": 11,
             "id": "EV11",
             "name": "Digital Transformation",
-            "status": "Aktif 🏛️ (+3 QoL)",
-            "badge": "🏢 +3 QoL",
-            "delta": {"M": 0, "E": 0, "ENV": 0, "QoL": 3},
+            "status": f"Aktif 🏛️ (+{qol_ev11} QoL)",
+            "badge": f"🏢 +{qol_ev11} QoL",
+            "delta": {"M": 0, "E": 0, "ENV": 0, "QoL": qol_ev11},
             "coins": 0,
-            "detail": "Transformasi digital terintegrasi mulus dengan T2 AI Urban System.",
+            "detail": f"Transformasi digital terintegrasi mulus dengan {t2_count}x T2 AI Urban System.",
         })
     else:
         events_log.append({
@@ -5277,18 +5283,20 @@ def evaluate_events_for_player(
             "detail": "Kota belum mengadopsi teknologi T2 AI Urban System.",
         })
 
-    # EV12: Round 12 Clean Energy Revolution (+3 E jika punya T1)
-    if "T1" in tech_set:
-        delta["E"] += 3
+    # EV12: Round 12 Clean Energy Revolution (+3 E per salinan T1 yang dimiliki)
+    t1_count = list(tech_codes or []).count("T1")
+    if t1_count > 0:
+        e_ev12 = 3 * t1_count
+        delta["E"] += e_ev12
         events_log.append({
             "round": 12,
             "id": "EV12",
             "name": "Clean Energy Revolution",
-            "status": "Aktif ☀️ (+3 E)",
-            "badge": "⚡ +3 E",
-            "delta": {"M": 0, "E": 3, "ENV": 0, "QoL": 0},
+            "status": f"Aktif ☀️ (+{e_ev12} E)",
+            "badge": f"⚡ +{e_ev12} E",
+            "delta": {"M": 0, "E": e_ev12, "ENV": 0, "QoL": 0},
             "coins": 0,
-            "detail": "Revolusi energi bersih memuncak berkat T1 Solar Engineering.",
+            "detail": f"Revolusi energi bersih memuncak berkat {t1_count}x T1 Solar Engineering.",
         })
     else:
         events_log.append({
@@ -5903,8 +5911,9 @@ def recommend_cards_for_player(
     spread = max_aspect_val - pillars[min_aspect]
     effective_coins = int(audit["coins"])
 
-    owned_projs = set(player_data.get("projects", []))
-    owned_techs = set(player_data.get("techs", []))
+    owned_projs_list = list(player_data.get("projects", []))
+    owned_techs_list = list(player_data.get("techs", []))
+    owned_techs = set(owned_techs_list)
     aspect_names = {
         "M": "Mobility",
         "E": "Energy",
@@ -5916,8 +5925,7 @@ def recommend_cards_for_player(
 
     for c in PROJECT_CARDS:
         cid = c["id"]
-        if cid in owned_projs:
-            continue
+        owned_cnt = owned_projs_list.count(cid)
         req_techs = c.get("tech_list", [])
         if any(t not in owned_techs for t in req_techs):
             continue
@@ -5933,21 +5941,23 @@ def recommend_cards_for_player(
             continue
 
         efficiency = weak_gain / max(1, eff_cost)
-        score_val = round(weak_gain * 3.5 + total_gain * 1.1 + efficiency * 2.5 - eff_cost * 0.25, 4)
+        fresh_bonus = 0.35 if owned_cnt == 0 else -0.25 * owned_cnt
+        score_val = round(weak_gain * 3.5 + total_gain * 1.1 + efficiency * 2.5 - eff_cost * 0.25 + fresh_bonus, 4)
         priority_key = (1 if weak_gain > 0 else 0, score_val, total_gain, -eff_cost)
 
+        dup_suffix = f" (Salinan ke-{owned_cnt + 1})" if owned_cnt > 0 else ""
         if weak_gain > 0 and spread >= 20:
             reason = (
                 f"Menutup ketertinggalan {aspect_names[min_aspect]} (+{weak_gain} {min_aspect}) "
-                f"agar terhindar dari status At-Risk"
+                f"agar terhindar dari status At-Risk{dup_suffix}"
             )
         elif weak_gain > 0:
             reason = (
                 f"Memperkuat pilar terlemah {aspect_names[min_aspect]} "
-                f"(+{weak_gain} {min_aspect} · {eff_cost} Koin)"
+                f"(+{weak_gain} {min_aspect} · {eff_cost} Koin){dup_suffix}"
             )
         else:
-            reason = f"Menambah total +{total_gain} poin infrastruktur secara efisien ({eff_cost} Koin)"
+            reason = f"Menambah total +{total_gain} poin infrastruktur secara efisien ({eff_cost} Koin){dup_suffix}"
 
         candidates.append(
             (
@@ -5971,8 +5981,7 @@ def recommend_cards_for_player(
 
     for t in PERMANENT_TECH_BY_CODE.values():
         tcode = t["code"]
-        if tcode in owned_techs:
-            continue
+        owned_cnt = owned_techs_list.count(tcode)
         base_cost = int(t.get("cost", 0))
         discount = 2 if active_event_id == "EV05" else 0
         eff_cost = max(0, base_cost - discount)
@@ -5982,17 +5991,19 @@ def recommend_cards_for_player(
         weak_gain = int(t.get(min_aspect, 0))
         total_gain = sum(int(t.get(k, 0)) for k in ("M", "E", "ENV", "QoL"))
         efficiency = weak_gain / max(1, eff_cost)
-        score_val = round(weak_gain * 3.2 + total_gain * 1.1 + efficiency * 2.0 - eff_cost * 0.2 + 0.8, 4)
+        fresh_bonus = 0.8 if owned_cnt == 0 else -0.35 * owned_cnt
+        score_val = round(weak_gain * 3.2 + total_gain * 1.1 + efficiency * 2.0 - eff_cost * 0.2 + fresh_bonus, 4)
         priority_key = (1 if weak_gain > 0 else 0, score_val, total_gain, -eff_cost)
 
+        dup_suffix = f" (Salinan ke-{owned_cnt + 1})" if owned_cnt > 0 else ""
         if weak_gain > 0:
             reason = (
                 f"Tech permanen penopang {aspect_names[min_aspect]} "
-                f"(+{weak_gain} {min_aspect}/ronde) & pembuka syarat proyek"
+                f"(+{weak_gain} {min_aspect}/ronde) & pembuka syarat proyek{dup_suffix}"
             )
         else:
             reason = (
-                f"Tech permanen ({t.get('effect_summary', '')}) untuk membuka syarat proyek lanjutan"
+                f"Tech permanen ({t.get('effect_summary', '')}) untuk membuka syarat proyek lanjutan{dup_suffix}"
             )
 
         candidates.append(

@@ -16,7 +16,7 @@ import streamlit as st
 for _dep_name, _dep_attrs in (
     ("cards_data", ("PROBLEM_SOLUTION_RULES", "get_resolvable_problems_for_tech", "get_resolvable_problems_for_skill", "recommend_cards_for_player", "assign_special_city_awards")),
     ("styles", ("FACTION_THEMES", "inject_faction_turn_styles", "render_html")),
-    ("state_manager", ("TAB_OPTIONS", "callback_switch_tab", "callback_lock_and_open_audit", "export_session_json", "callback_select_board_tile")),
+    ("state_manager", ("TAB_OPTIONS", "callback_switch_tab", "callback_lock_and_open_audit", "export_session_json", "callback_select_board_tile", "callback_add_player_card", "callback_remove_one_player_card")),
 ):
     _dep_mod = importlib.import_module(_dep_name)
     if any(not hasattr(_dep_mod, _a) for _a in _dep_attrs):
@@ -51,6 +51,7 @@ from state_manager import (
     TAB_OPTIONS,
     WELCOME_CHAT_MESSAGE,
     callback_activate_tech,
+    callback_add_player_card,
     callback_apply_quick_card,
     callback_event_picker_changed,
     callback_import_uploaded_session,
@@ -59,6 +60,7 @@ from state_manager import (
     callback_next_round,
     callback_pick_recommended_card,
     callback_prev_round,
+    callback_remove_one_player_card,
     callback_reset_district_filter,
     callback_reset_game,
     callback_reset_manual_points,
@@ -69,10 +71,6 @@ from state_manager import (
     callback_sync_coins,
     callback_sync_manual_points,
     callback_sync_name,
-    callback_sync_problems,
-    callback_sync_projects,
-    callback_sync_skills,
-    callback_sync_techs,
     callback_undo_last_action,
     callback_use_s1,
     callback_use_s1_fallback,
@@ -754,6 +752,101 @@ def build_certificate_download_html(
 """
 
 
+def _render_duplicate_card_inventory_section(
+    p_id: int,
+    cat_key: str,
+    title: str,
+    subtitle: str,
+    icon_file: str,
+    chip_bg: str,
+    chip_fg: str,
+    chip_bdr: str,
+    chip_suffix: str,
+    options: List[str],
+    format_fn: Any,
+    owned_items: List[str],
+    empty_text: str,
+) -> None:
+    """Merender pengelola kartu per kategori di Kelola Kartu & Kas yang mendukung kartu ganda (duplikat)."""
+    with st.container(key=f"wrap_{cat_key}_sec_{p_id}"):
+        render_html(
+            f"""
+            <div class="eco-drawer-hdr">
+              <span class="eco-drawer-title">{icon_img_html(icon_file, 17, title, 2)}{html.escape(title)} <span class="eco-drawer-sub">{html.escape(subtitle)}</span></span>
+              <span class="eco-drawer-chip" style="background:{chip_bg};color:{chip_fg};border-color:{chip_bdr};">
+                {len(owned_items)}{html.escape(chip_suffix)}
+              </span>
+            </div>
+            """
+        )
+        sel_key = f"add_sel_{cat_key}_{p_id}"
+        if st.session_state.get(sel_key) not in options and options:
+            st.session_state[sel_key] = options[0]
+        add_c1, add_c2 = st.columns([7.2, 2.8], gap="small")
+        with add_c1:
+            st.selectbox(
+                f"Tambah {title}:",
+                options=options,
+                format_func=format_fn,
+                key=sel_key,
+                label_visibility="collapsed",
+            )
+        with add_c2:
+            st.button(
+                "+ Tambah",
+                key=f"btn_add_card_{cat_key}_{p_id}",
+                width="stretch",
+                on_click=callback_add_player_card,
+                args=(p_id, cat_key),
+                help=f"Tambah 1 salinan kartu ke {title} (boleh ganda).",
+            )
+
+        if owned_items:
+            unique_owned = list(dict.fromkeys(owned_items))
+            for cid in unique_owned:
+                qty = owned_items.count(cid)
+                cth = get_card_color_theme(cid)
+                c_bg = cth.get("bg", chip_bg)
+                c_bdr = cth.get("border", chip_bdr)
+                c_txt = cth.get("text", chip_fg)
+                c_name = get_card_clean_name(cid)
+                qty_badge = (
+                    f' <span style="background:#FFFDF7;color:{c_txt};border:1px solid {c_bdr};border-radius:999px;padding:0px 6px;font-size:0.68rem;font-weight:900;margin-left:3px;">{qty}x</span>'
+                    if qty > 1
+                    else ""
+                )
+                row_lbl, row_rm, row_inc = st.columns([7.4, 1.3, 1.3], gap="small")
+                with row_lbl:
+                    render_html(
+                        f"""
+                        <div style="background:{c_bg};border:1.5px solid {c_bdr};color:{c_txt};border-radius:9px;padding:4px 8px;font-size:0.74rem;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:30px;">
+                          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><b>[{html.escape(str(cid))}]</b> {html.escape(c_name)}</span>
+                          {qty_badge}
+                        </div>
+                        """
+                    )
+                with row_rm:
+                    st.button(
+                        "✕" if qty == 1 else "−",
+                        key=f"btn_rm_card_{cat_key}_{p_id}_{cid}",
+                        width="stretch",
+                        on_click=callback_remove_one_player_card,
+                        args=(p_id, cat_key, cid),
+                        help=f"Hapus 1 salinan [{cid}] {c_name} (tersisa {max(0, qty - 1)}x).",
+                    )
+                with row_inc:
+                    st.button(
+                        "+",
+                        key=f"btn_inc_card_{cat_key}_{p_id}_{cid}",
+                        width="stretch",
+                        on_click=callback_add_player_card,
+                        args=(p_id, cat_key, cid),
+                        help=f"Tambah 1 salinan lagi [{cid}] {c_name}.",
+                    )
+        else:
+            st.caption(empty_text)
+
+
 def render_hero_banner() -> None:
     """Merender Top HUD Bar pengunci atas serta Hero Banner EcoNova Board-Mat."""
     logo_uri = get_econova_logo_uri()
@@ -1195,7 +1288,7 @@ def render_tab_tracker() -> None:
             c_bg = card_theme.get("bg", "#FFFDF7")
             c_border = card_theme.get("border", "#164E33")
             c_text = card_theme.get("text", "#164E33")
-            already_owned = q_cid in owned_list
+            owned_count = owned_list.count(q_cid)
             eff_sum = preview_card.get("effect_summary", preview_card.get("effect_str", "-"))
             base_cost = int(preview_card.get("cost", 0))
             dist_val = preview_card.get("district", q_cat)
@@ -1236,8 +1329,8 @@ def render_tab_tracker() -> None:
             insufficient_coins = (q_cat in ("Project", "Tech", "Skill")) and (target_live_coins < effective_cost)
 
             owned_badge = (
-                '<span style="background:#FEF3C7;color:#92400E;border:1px solid #F59E0B;border-radius:999px;padding:1px 8px;font-size:0.68rem;font-weight:800;">Sudah Dimiliki</span>'
-                if already_owned
+                f'<span style="background:#FEF3C7;color:#92400E;border:1px solid #F59E0B;border-radius:999px;padding:1px 8px;font-size:0.68rem;font-weight:800;">📦 Sudah dimiliki: {owned_count}x (Bisa ditambah lagi)</span>'
+                if owned_count > 0
                 else ""
             )
             discount_pill = (
@@ -1293,24 +1386,18 @@ def render_tab_tracker() -> None:
                 """
             )
             has_req_warning = bool(missing_techs or insufficient_coins)
-            btn_apply_label = (
-                f"Kartu {q_cid} Sudah Dimiliki P{active_player_id}"
-                if already_owned
-                else (
-                    f"{exec_btn_label} (P{active_player_id}) · Override Fasilitator"
-                    if has_req_warning
-                    else f"{exec_btn_label} (P{active_player_id})"
-                )
-            )
+            stack_suffix = f" (+Salinan ke-{owned_count + 1})" if owned_count > 0 else ""
+            override_suffix = " · Override Fasilitator" if has_req_warning else ""
+            btn_apply_label = f"{exec_btn_label} (P{active_player_id}){stack_suffix}{override_suffix}"
             st.button(
                 btn_apply_label,
                 type="primary",
                 width="stretch",
                 key="btn_apply_quick_card",
-                disabled=already_owned,
+                disabled=False,
                 on_click=callback_apply_quick_card,
                 args=(active_player_id, q_cat, q_cid),
-                help="Tombol tetap aktif sebagai override manual fasilitator meja meskipun syarat Tech atau koin belum mencukupi.",
+                help="Mendukung kepemilikan kartu ganda (stacking) dan tetap aktif sebagai override manual fasilitator.",
             )
 
             # 3. Rekomendasi Kartu Pintar (Smart Strategy Advisor)
@@ -1812,10 +1899,14 @@ def render_tab_tracker() -> None:
                         </div>
                         """
                     )
-                    t_cols = st.columns(len(pl["techs"]) if len(pl["techs"]) <= 2 else 2, gap="small")
-                    for t_idx, tc in enumerate(pl["techs"]):
+                    unique_techs = list(dict.fromkeys(pl["techs"]))
+                    t_cols = st.columns(len(unique_techs) if len(unique_techs) <= 2 else 2, gap="small")
+                    for t_idx, tc in enumerate(unique_techs):
                         t_clean = get_card_clean_name(tc)
-                        is_used = tc in pl["active_techs_this_round"]
+                        tc_owned = pl["techs"].count(tc)
+                        tc_used = pl["active_techs_this_round"].count(tc)
+                        is_exhausted = (tc_used >= tc_owned)
+                        qty_tag = f" ({tc_used}/{tc_owned})" if tc_owned > 1 else ""
                         resolvable_probs = get_resolvable_problems_for_tech(tc, pl["techs"], pl["problems"])
                         prob_hint = (
                             f" & selesaikan krisis {resolvable_probs[0]}"
@@ -1824,9 +1915,9 @@ def render_tab_tracker() -> None:
                         )
 
                         with t_cols[t_idx % len(t_cols)]:
-                            if is_used:
+                            if is_exhausted:
                                 st.button(
-                                    f"{tc} [Sudah Dipakai]",
+                                    f"{tc} [Sudah Dipakai{qty_tag}]",
                                     key=f"btn_tech_{p_id}_{tc}",
                                     disabled=True,
                                     width="stretch",
@@ -1834,7 +1925,7 @@ def render_tab_tracker() -> None:
                                 )
                             else:
                                 st.button(
-                                    f"Pakai {t_clean}",
+                                    f"Pakai {t_clean}{qty_tag}",
                                     key=f"btn_tech_{p_id}_{tc}",
                                     disabled=False,
                                     width="stretch",
@@ -1854,15 +1945,18 @@ def render_tab_tracker() -> None:
                     )
 
                     if "S1" in pl["skills"]:
+                        s1_qty = pl["skills"].count("S1")
+                        s1_tag = f" ({s1_qty}x)" if s1_qty > 1 else ""
                         if pl["problems"]:
+                            unique_probs_for_s1 = list(dict.fromkeys(pl["problems"]))
                             s1_target = st.selectbox(
                                 "Pilih Problem Card yang Dihapus via S1:",
-                                options=pl["problems"],
+                                options=unique_probs_for_s1,
                                 format_func=format_problem_label,
                                 key=f"sel_s1_target_{p_id}",
                             )
                             st.button(
-                                "Pakai S1 (Hapus Problem)",
+                                f"Pakai S1{s1_tag} (Hapus Problem)",
                                 key=f"btn_use_s1_{p_id}",
                                 width="stretch",
                                 type="primary",
@@ -1872,23 +1966,25 @@ def render_tab_tracker() -> None:
                         else:
                             st.caption("Pemain tidak memiliki Problem Card. Pakai S1 untuk Dana Darurat (+2 Semua Aspek):")
                             st.button(
-                                "Pakai S1 (Dana Darurat +2 All)",
+                                f"Pakai S1{s1_tag} (Dana Darurat +2 All)",
                                 key=f"btn_use_s1_fb_{p_id}",
                                 width="stretch",
                                 on_click=callback_use_s1_fallback,
                                 args=(p_id,),
                             )
 
-                    other_skills = [s for s in pl["skills"] if s != "S1"]
+                    other_skills = list(dict.fromkeys(s for s in pl["skills"] if s != "S1"))
                     if other_skills:
                         s_cols = st.columns(len(other_skills) if len(other_skills) <= 2 else 2, gap="small")
                         for s_idx, sc in enumerate(other_skills):
                             s_clean = get_card_clean_name(sc)
-                            matching_probs = get_resolvable_problems_for_skill(sc, pl["problems"])
+                            s_qty = pl["skills"].count(sc)
+                            s_qty_tag = f" · {s_qty}x" if s_qty > 1 else ""
+                            matching_probs = list(dict.fromkeys(get_resolvable_problems_for_skill(sc, pl["problems"])))
                             with s_cols[s_idx % len(s_cols)]:
                                 if sc == "S5":
                                     st.button(
-                                        f"Pakai {s_clean} (Kebal Event)",
+                                        f"Pakai {s_clean} (Kebal Event){s_qty_tag}",
                                         key=f"btn_use_s5_{p_id}",
                                         width="stretch",
                                         on_click=callback_use_s5,
@@ -1896,7 +1992,7 @@ def render_tab_tracker() -> None:
                                     )
                                 elif sc == "S2":
                                     st.button(
-                                        f"Pakai {s_clean} (+5 ENV)",
+                                        f"Pakai {s_clean} (+5 ENV){s_qty_tag}",
                                         key=f"btn_use_s2_{p_id}",
                                         width="stretch",
                                         on_click=callback_use_s2,
@@ -1904,7 +2000,7 @@ def render_tab_tracker() -> None:
                                     )
                                 elif sc == "S3":
                                     st.button(
-                                        f"Pakai {s_clean} (+5 M)",
+                                        f"Pakai {s_clean} (+5 M){s_qty_tag}",
                                         key=f"btn_use_s3_{p_id}",
                                         width="stretch",
                                         on_click=callback_use_s3,
@@ -1912,7 +2008,7 @@ def render_tab_tracker() -> None:
                                     )
                                 elif sc == "S4":
                                     st.button(
-                                        f"Pakai {s_clean} (+5 QoL)",
+                                        f"Pakai {s_clean} (+5 QoL){s_qty_tag}",
                                         key=f"btn_use_s4_{p_id}",
                                         width="stretch",
                                         on_click=callback_use_s4,
@@ -1922,12 +2018,12 @@ def render_tab_tracker() -> None:
                                 for mp_id in matching_probs:
                                     mp_name = get_card_clean_name(mp_id)
                                     st.button(
-                                        f"Pakai {sc} (Amankan {mp_id})",
+                                        f"Pakai {sc} (Amankan {mp_id}){s_qty_tag}",
                                         key=f"btn_solve_{sc}_{mp_id}_{p_id}",
                                         width="stretch",
                                         on_click=callback_use_skill_solve_problem,
                                         args=(p_id, sc, mp_id),
-                                        help=f"Gunakan {s_clean} untuk mengamankan [{mp_name}] dan hapus kartu {sc}.",
+                                        help=f"Gunakan 1 salinan {s_clean} untuk mengamankan [{mp_name}] dan hapus 1 kartu {sc}.",
                                     )
 
                 cur_mp = pl.get("manual_points", {"M": 0, "E": 0, "ENV": 0, "QoL": 0})
@@ -2032,93 +2128,69 @@ def render_tab_tracker() -> None:
                                 args=(p_id,),
                             )
 
-                    with st.container(key=f"wrap_proj_sec_{p_id}"):
-                        render_html(
-                            f"""
-                            <div class="eco-drawer-hdr">
-                              <span class="eco-drawer-title">{icon_img_html('icon_card_project.png', 17, 'Proyek', 2)}Proyek Dibangun <span class="eco-drawer-sub">(120)</span></span>
-                              <span class="eco-drawer-chip" style="background:#DCFCE7;color:#14532D;border-color:#86EFAC;">
-                                {len(pl['projects'])} / 120
-                              </span>
-                            </div>
-                            """
-                        )
-                        st.multiselect(
-                            "Proyek Dibangun (120):",
-                            options=project_id_options,
-                            format_func=format_project_label,
-                            placeholder="Pilih kartu proyek...",
-                            label_visibility="collapsed",
-                            key=f"widget_projects_{p_id}",
-                            on_change=callback_sync_projects,
-                            args=(p_id,),
-                        )
+                    _render_duplicate_card_inventory_section(
+                        p_id=p_id,
+                        cat_key="projects",
+                        title="Proyek Dibangun",
+                        subtitle="(120)",
+                        icon_file="icon_card_project.png",
+                        chip_bg="#DCFCE7",
+                        chip_fg="#14532D",
+                        chip_bdr="#86EFAC",
+                        chip_suffix=" Kartu",
+                        options=project_id_options,
+                        format_fn=format_project_label,
+                        owned_items=pl["projects"],
+                        empty_text="Belum ada kartu proyek dibangun.",
+                    )
 
-                    with st.container(key=f"wrap_tech_sec_{p_id}"):
-                        render_html(
-                            f"""
-                            <div class="eco-drawer-hdr">
-                              <span class="eco-drawer-title">{icon_img_html('icon_card_tech.png', 17, 'Tech', 2)}Permanent Tech <span class="eco-drawer-sub">(T1–T5)</span></span>
-                              <span class="eco-drawer-chip" style="background:#E0F2FE;color:#075985;border-color:#7DD3FC;">
-                                {len(pl['techs'])} / 5
-                              </span>
-                            </div>
-                            """
-                        )
-                        st.multiselect(
-                            "Permanent Tech Dimiliki (T1–T5):",
-                            options=tech_code_options,
-                            format_func=format_tech_label,
-                            placeholder="Pilih tech T1–T5...",
-                            label_visibility="collapsed",
-                            key=f"widget_techs_{p_id}",
-                            on_change=callback_sync_techs,
-                            args=(p_id,),
-                        )
+                    _render_duplicate_card_inventory_section(
+                        p_id=p_id,
+                        cat_key="techs",
+                        title="Permanent Tech",
+                        subtitle="(T1–T5)",
+                        icon_file="icon_card_tech.png",
+                        chip_bg="#E0F2FE",
+                        chip_fg="#075985",
+                        chip_bdr="#7DD3FC",
+                        chip_suffix=" Kartu",
+                        options=tech_code_options,
+                        format_fn=format_tech_label,
+                        owned_items=pl["techs"],
+                        empty_text="Belum ada Permanent Tech dimiliki.",
+                    )
 
-                    with st.container(key=f"wrap_skill_sec_{p_id}"):
-                        render_html(
-                            f"""
-                            <div class="eco-drawer-hdr">
-                              <span class="eco-drawer-title">{icon_img_html('icon_card_skill.png', 17, 'Skill', 2)}Skill Card di Tangan <span class="eco-drawer-sub">(S1–S5)</span></span>
-                              <span class="eco-drawer-chip" style="background:#FEF3C7;color:#92400E;border-color:#FCD34D;">
-                                {len(pl['skills'])} / 5
-                              </span>
-                            </div>
-                            """
-                        )
-                        st.multiselect(
-                            "Skill Card di Tangan (S1–S5):",
-                            options=skill_code_options,
-                            format_func=format_skill_label,
-                            placeholder="Pilih skill S1–S5...",
-                            label_visibility="collapsed",
-                            key=f"widget_skills_{p_id}",
-                            on_change=callback_sync_skills,
-                            args=(p_id,),
-                        )
+                    _render_duplicate_card_inventory_section(
+                        p_id=p_id,
+                        cat_key="skills",
+                        title="Skill Card di Tangan",
+                        subtitle="(S1–S5)",
+                        icon_file="icon_card_skill.png",
+                        chip_bg="#FEF3C7",
+                        chip_fg="#92400E",
+                        chip_bdr="#FCD34D",
+                        chip_suffix=" Kartu",
+                        options=skill_code_options,
+                        format_fn=format_skill_label,
+                        owned_items=pl["skills"],
+                        empty_text="Belum ada Skill Card di tangan.",
+                    )
 
-                    with st.container(key=f"wrap_prob_sec_{p_id}"):
-                        render_html(
-                            f"""
-                            <div class="eco-drawer-hdr">
-                              <span class="eco-drawer-title">{icon_img_html('icon_card_problem.png', 17, 'Krisis', 2)}Krisis Gagal <span class="eco-drawer-sub">(Penalti)</span></span>
-                              <span class="eco-drawer-chip" style="background:#FFE4E6;color:#9F1239;border-color:#FDA4AF;">
-                                {len(pl['problems'])} Krisis
-                              </span>
-                            </div>
-                            """
-                        )
-                        st.multiselect(
-                            "Krisis Gagal (Penalti):",
-                            options=problem_id_options,
-                            format_func=format_problem_label,
-                            placeholder="Pilih kartu krisis...",
-                            label_visibility="collapsed",
-                            key=f"widget_problems_{p_id}",
-                            on_change=callback_sync_problems,
-                            args=(p_id,),
-                        )
+                    _render_duplicate_card_inventory_section(
+                        p_id=p_id,
+                        cat_key="problems",
+                        title="Krisis Gagal",
+                        subtitle="(Penalti)",
+                        icon_file="icon_card_problem.png",
+                        chip_bg="#FFE4E6",
+                        chip_fg="#9F1239",
+                        chip_bdr="#FDA4AF",
+                        chip_suffix=" Krisis",
+                        options=problem_id_options,
+                        format_fn=format_problem_label,
+                        owned_items=pl["problems"],
+                        empty_text="0 Krisis gagal.",
+                    )
 
                     coin_bonus_val = calculate_coin_bonus(effective_coins)
                     coin_chip_txt = (
